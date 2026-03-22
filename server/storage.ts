@@ -1,7 +1,3 @@
-import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
-import { drizzle as drizzleSqlite } from "drizzle-orm/better-sqlite3";
-import { Pool } from "pg";
-import Database from "better-sqlite3";
 import { eq, and } from "drizzle-orm";
 import {
   users, clients, incomeEntries, expenseEntries, mealEntries, mileageEntries, monthlySummaries,
@@ -14,144 +10,41 @@ import {
   type MonthlySummary, type InsertSummary,
 } from "@shared/schema";
 
-// ---- Database setup ----
-const DATABASE_URL = process.env.DATABASE_URL;
-
-let db: any;
+// ---- Lazy database references — set inside initDatabase() at runtime ----
+// Nothing is evaluated at module load time. This prevents esbuild from
+// dead-code-eliminating the PG branch when DATABASE_URL is absent at build time.
+let db: any = null;
 let isPostgres = false;
-let pgPool: Pool | null = null;
+let pgPool: any = null;
 
-if (DATABASE_URL) {
-  isPostgres = true;
-  pgPool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  db = drizzlePg(pgPool);
-} else {
-  // Fallback to SQLite for local development
-  const sqlite = new Database("tracker.db");
-  db = drizzleSqlite(sqlite);
-
-  // SQLite: create tables synchronously right now (sync is fine for SQLite)
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'client',
-      stripe_customer_id TEXT,
-      stripe_subscription_id TEXT,
-      subscription_status TEXT DEFAULT 'inactive',
-      trial_ends_at TEXT,
-      current_period_end TEXT,
-      client_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS clients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      business_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      ein TEXT,
-      bookkeeper_email TEXT NOT NULL DEFAULT 'd.d.boutte@theltdgroupllc.com'
-    );
-    CREATE TABLE IF NOT EXISTS income_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      source TEXT NOT NULL,
-      description TEXT,
-      amount REAL NOT NULL,
-      category TEXT NOT NULL DEFAULT 'Income'
-    );
-    CREATE TABLE IF NOT EXISTS expense_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      vendor TEXT NOT NULL,
-      description TEXT,
-      amount REAL NOT NULL,
-      category TEXT NOT NULL,
-      receipt_note TEXT
-    );
-    CREATE TABLE IF NOT EXISTS meal_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      restaurant TEXT NOT NULL,
-      attendees TEXT,
-      business_purpose TEXT NOT NULL,
-      amount REAL NOT NULL,
-      deductible_amount REAL NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS mileage_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      start_location TEXT NOT NULL,
-      end_location TEXT NOT NULL,
-      business_purpose TEXT NOT NULL,
-      miles REAL NOT NULL,
-      deductible_amount REAL NOT NULL,
-      irs_rate REAL NOT NULL DEFAULT 0.70
-    );
-    CREATE TABLE IF NOT EXISTS monthly_summaries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      total_income REAL NOT NULL,
-      total_expenses REAL NOT NULL,
-      total_meals REAL NOT NULL,
-      total_meal_deductible REAL NOT NULL,
-      total_miles REAL NOT NULL,
-      total_mileage_deductible REAL NOT NULL,
-      net_profit REAL NOT NULL,
-      sent_to_bookkeeper INTEGER DEFAULT 0,
-      sent_at TEXT
-    );
-  `);
-}
-
-// ---- initDatabase: MUST be awaited before server starts listening ----
-// This runs all DDL against PostgreSQL (idempotent CREATE TABLE IF NOT EXISTS)
-// and seeds the admin account if it doesn't exist yet.
+// ---- initDatabase: MUST be awaited before the server starts listening ----
 export async function initDatabase(): Promise<void> {
+  // Read env at runtime, not build time
+  const DATABASE_URL = process.env.DATABASE_URL;
   const adminEmail = (process.env.ADMIN_EMAIL || "d.d.boutte@theltdgroupllc.com").toLowerCase();
   // Fallback hash for password "LTDGroup2026!" — overridden by ADMIN_PASSWORD_HASH env var
-  const adminHash = process.env.ADMIN_PASSWORD_HASH ||
+  const adminHash =
+    process.env.ADMIN_PASSWORD_HASH ||
     "$2b$10$LA2NDT6iuQt8fMvozDahy.cVRddIbPjTHCkHC3yFBY/vXX140Iab.";
 
-  if (!isPostgres || !pgPool) {
-    // SQLite: tables already created above synchronously.
-    // Just ensure admin exists (INSERT OR IGNORE, then UPDATE role).
-    const sqliteDb = db;
-    try {
-      sqliteDb.db?.exec(`
-        INSERT OR IGNORE INTO users (email, password_hash, name, role, subscription_status, created_at)
-        VALUES ('${adminEmail}', '${adminHash}', 'The LTD Group Admin', 'admin', 'active', datetime('now'));
-        UPDATE users SET role='admin', subscription_status='active', password_hash='${adminHash}' WHERE email='${adminEmail}';
-      `);
-    } catch (e) {
-      console.error("[db] SQLite admin seed error:", e);
-    }
-    console.log("[db] SQLite database ready");
-    return;
-  }
+  if (DATABASE_URL) {
+    // ---- PostgreSQL path ----
+    console.log("[db] DATABASE_URL detected — using PostgreSQL");
 
-  // ---- PostgreSQL path ----
-  console.log("[db] Running PostgreSQL migrations...");
+    // Dynamic require at runtime avoids build-time evaluation
+    const { Pool } = require("pg");
+    const { drizzle: drizzlePg } = require("drizzle-orm/node-postgres");
 
-  try {
-    // Step 1: Create all tables (idempotent)
+    isPostgres = true;
+    pgPool = new Pool({
+      connectionString: DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+    db = drizzlePg(pgPool);
+
+    console.log("[db] Running PostgreSQL migrations...");
+
+    // Create all tables — fully idempotent
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -249,8 +142,7 @@ export async function initDatabase(): Promise<void> {
 
     console.log("[db] PostgreSQL tables created/verified");
 
-    // Step 2: Seed admin user if not exists (INSERT ... ON CONFLICT DO UPDATE)
-    // This is idempotent: creates on first deploy, updates role/status on subsequent deploys.
+    // Seed admin — INSERT if not exists, then always ensure role=admin
     await pgPool.query(
       `INSERT INTO users (email, password_hash, name, role, subscription_status, created_at)
        VALUES ($1, $2, 'The LTD Group Admin', 'admin', 'active', NOW()::TEXT)
@@ -264,24 +156,109 @@ export async function initDatabase(): Promise<void> {
       [adminEmail, adminHash]
     );
 
-    console.log(`[db] Admin account ensured for ${adminEmail}`);
+    console.log(`[db] Admin account ensured: ${adminEmail}`);
     console.log("[db] PostgreSQL database ready ✓");
 
-  } catch (e) {
-    console.error("[db] CRITICAL: Database initialization failed:", e);
-    // Re-throw so the server startup fails loudly rather than serving with no DB
-    throw e;
+  } else {
+    // ---- SQLite fallback (local dev only) ----
+    console.log("[db] No DATABASE_URL — using SQLite (local dev mode)");
+
+    const Database = require("better-sqlite3");
+    const { drizzle: drizzleSqlite } = require("drizzle-orm/better-sqlite3");
+
+    const sqlite = new Database("tracker.db");
+    db = drizzleSqlite(sqlite);
+
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'client',
+        stripe_customer_id TEXT,
+        stripe_subscription_id TEXT,
+        subscription_status TEXT DEFAULT 'inactive',
+        trial_ends_at TEXT,
+        current_period_end TEXT,
+        client_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS clients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        business_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        ein TEXT,
+        bookkeeper_email TEXT NOT NULL DEFAULT 'd.d.boutte@theltdgroupllc.com'
+      );
+      CREATE TABLE IF NOT EXISTS income_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL, date TEXT NOT NULL,
+        month INTEGER NOT NULL, year INTEGER NOT NULL,
+        source TEXT NOT NULL, description TEXT,
+        amount REAL NOT NULL, category TEXT NOT NULL DEFAULT 'Income'
+      );
+      CREATE TABLE IF NOT EXISTS expense_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL, date TEXT NOT NULL,
+        month INTEGER NOT NULL, year INTEGER NOT NULL,
+        vendor TEXT NOT NULL, description TEXT,
+        amount REAL NOT NULL, category TEXT NOT NULL, receipt_note TEXT
+      );
+      CREATE TABLE IF NOT EXISTS meal_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL, date TEXT NOT NULL,
+        month INTEGER NOT NULL, year INTEGER NOT NULL,
+        restaurant TEXT NOT NULL, attendees TEXT,
+        business_purpose TEXT NOT NULL,
+        amount REAL NOT NULL, deductible_amount REAL NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS mileage_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL, date TEXT NOT NULL,
+        month INTEGER NOT NULL, year INTEGER NOT NULL,
+        start_location TEXT NOT NULL, end_location TEXT NOT NULL,
+        business_purpose TEXT NOT NULL,
+        miles REAL NOT NULL, deductible_amount REAL NOT NULL,
+        irs_rate REAL NOT NULL DEFAULT 0.70
+      );
+      CREATE TABLE IF NOT EXISTS monthly_summaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL,
+        month INTEGER NOT NULL, year INTEGER NOT NULL,
+        total_income REAL NOT NULL, total_expenses REAL NOT NULL,
+        total_meals REAL NOT NULL, total_meal_deductible REAL NOT NULL,
+        total_miles REAL NOT NULL, total_mileage_deductible REAL NOT NULL,
+        net_profit REAL NOT NULL,
+        sent_to_bookkeeper INTEGER DEFAULT 0, sent_at TEXT
+      );
+    `);
+
+    // Seed admin for SQLite
+    try {
+      sqlite.exec(
+        `INSERT OR IGNORE INTO users (email, password_hash, name, role, subscription_status, created_at)
+         VALUES ('${adminEmail}', '${adminHash}', 'The LTD Group Admin', 'admin', 'active', datetime('now'));
+         UPDATE users SET role='admin', subscription_status='active' WHERE email='${adminEmail}';`
+      );
+    } catch (e) {
+      console.error("[db] SQLite admin seed error:", e);
+    }
+
+    console.log("[db] SQLite database ready");
   }
 }
 
 // ---- Helper: run query for both PG (async) and SQLite (sync) ----
 async function q(query: any): Promise<any[]> {
   if (isPostgres) {
-    return await query.then((r: any) => Array.isArray(r) ? r : [r]).catch(() => []);
+    return await query.then((r: any) => (Array.isArray(r) ? r : [r])).catch(() => []);
   }
   const result = query;
   if (Array.isArray(result)) return result;
-  if (result && typeof result === 'object') return [result];
+  if (result && typeof result === "object") return [result];
   return [];
 }
 
@@ -293,7 +270,7 @@ async function qOne(query: any): Promise<any | undefined> {
 export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
-  createUser(data: Omit<InsertUser, 'createdAt'>): Promise<User>;
+  createUser(data: Omit<InsertUser, "createdAt">): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   updateUserPassword(email: string, newHash: string): Promise<boolean>;
@@ -328,34 +305,24 @@ export interface IStorage {
 
 export const storage: IStorage = {
   async getUserByEmail(email) {
-    if (isPostgres) {
-      return await qOne(db.select().from(users).where(eq(users.email, email.toLowerCase())));
-    }
+    if (isPostgres) return await qOne(db.select().from(users).where(eq(users.email, email.toLowerCase())));
     return db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
   },
   async getUserById(id) {
-    if (isPostgres) {
-      return await qOne(db.select().from(users).where(eq(users.id, id)));
-    }
+    if (isPostgres) return await qOne(db.select().from(users).where(eq(users.id, id)));
     return db.select().from(users).where(eq(users.id, id)).get();
   },
   async createUser(data) {
     const payload = { ...data, email: data.email.toLowerCase(), createdAt: new Date().toISOString() };
-    if (isPostgres) {
-      return await qOne(db.insert(users).values(payload).returning());
-    }
+    if (isPostgres) return await qOne(db.insert(users).values(payload).returning());
     return db.insert(users).values(payload).returning().get();
   },
   async updateUser(id, data) {
-    if (isPostgres) {
-      return await qOne(db.update(users).set(data).where(eq(users.id, id)).returning());
-    }
+    if (isPostgres) return await qOne(db.update(users).set(data).where(eq(users.id, id)).returning());
     return db.update(users).set(data).where(eq(users.id, id)).returning().get();
   },
   async getAllUsers() {
-    if (isPostgres) {
-      return await q(db.select().from(users));
-    }
+    if (isPostgres) return await q(db.select().from(users));
     return db.select().from(users).all();
   },
   async updateUserPassword(email, newHash) {
@@ -466,17 +433,15 @@ export const storage: IStorage = {
 
   async getMonthlySummary(clientId, month, year) {
     if (isPostgres) {
-      return await qOne(db.select().from(monthlySummaries).where(and(
-        eq(monthlySummaries.clientId, clientId),
-        eq(monthlySummaries.month, month),
-        eq(monthlySummaries.year, year)
-      )));
+      return await qOne(
+        db.select().from(monthlySummaries).where(
+          and(eq(monthlySummaries.clientId, clientId), eq(monthlySummaries.month, month), eq(monthlySummaries.year, year))
+        )
+      );
     }
-    return db.select().from(monthlySummaries).where(and(
-      eq(monthlySummaries.clientId, clientId),
-      eq(monthlySummaries.month, month),
-      eq(monthlySummaries.year, year)
-    )).get();
+    return db.select().from(monthlySummaries).where(
+      and(eq(monthlySummaries.clientId, clientId), eq(monthlySummaries.month, month), eq(monthlySummaries.year, year))
+    ).get();
   },
   async getSummaries(clientId) {
     if (isPostgres) return await q(db.select().from(monthlySummaries).where(eq(monthlySummaries.clientId, clientId)));
@@ -492,7 +457,8 @@ export const storage: IStorage = {
     return db.insert(monthlySummaries).values(data).returning().get();
   },
   async markSummarySent(id) {
-    if (isPostgres) return await qOne(db.update(monthlySummaries).set({ sentToBookkeeper: true, sentAt: new Date().toISOString() }).where(eq(monthlySummaries.id, id)).returning());
-    return db.update(monthlySummaries).set({ sentToBookkeeper: true, sentAt: new Date().toISOString() }).where(eq(monthlySummaries.id, id)).returning().get();
+    const upd = { sentToBookkeeper: true, sentAt: new Date().toISOString() };
+    if (isPostgres) return await qOne(db.update(monthlySummaries).set(upd).where(eq(monthlySummaries.id, id)).returning());
+    return db.update(monthlySummaries).set(upd).where(eq(monthlySummaries.id, id)).returning().get();
   },
 };
