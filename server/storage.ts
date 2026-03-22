@@ -2,7 +2,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, and } from "drizzle-orm";
 import {
-  clients, incomeEntries, expenseEntries, mealEntries, mileageEntries, monthlySummaries,
+  users, clients, incomeEntries, expenseEntries, mealEntries, mileageEntries, monthlySummaries,
+  type User, type InsertUser,
   type Client, type InsertClient,
   type Income, type InsertIncome,
   type Expense, type InsertExpense,
@@ -78,6 +79,21 @@ sqlite.exec(`
     irs_rate REAL NOT NULL DEFAULT 0.70
   );
 
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'client',
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    subscription_status TEXT DEFAULT 'inactive',
+    trial_ends_at TEXT,
+    current_period_end TEXT,
+    client_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS monthly_summaries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     client_id INTEGER NOT NULL,
@@ -96,6 +112,13 @@ sqlite.exec(`
 `);
 
 export interface IStorage {
+  // Users / Auth
+  getUserByEmail(email: string): User | undefined;
+  getUserById(id: number): User | undefined;
+  createUser(data: Omit<InsertUser, 'createdAt'>): User;
+  updateUser(id: number, data: Partial<User>): User | undefined;
+  getAllUsers(): User[];
+
   // Clients
   getClients(): Client[];
   getClient(id: number): Client | undefined;
@@ -131,6 +154,22 @@ export interface IStorage {
 }
 
 export const storage: IStorage = {
+  getUserByEmail(email) {
+    return db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
+  },
+  getUserById(id) {
+    return db.select().from(users).where(eq(users.id, id)).get();
+  },
+  createUser(data) {
+    return db.insert(users).values({ ...data, email: data.email.toLowerCase(), createdAt: new Date().toISOString() }).returning().get();
+  },
+  updateUser(id, data) {
+    return db.update(users).set(data).where(eq(users.id, id)).returning().get();
+  },
+  getAllUsers() {
+    return db.select().from(users).all();
+  },
+
   getClients() {
     return db.select().from(clients).all();
   },

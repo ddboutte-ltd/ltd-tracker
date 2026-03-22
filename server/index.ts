@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,6 +13,9 @@ declare module "http" {
   }
 }
 
+// Raw body needed for Stripe webhook signature verification
+app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -21,6 +25,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

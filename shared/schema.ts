@@ -2,6 +2,28 @@ import { sqliteTable, text, real, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users (subscriber accounts — clients log in here)
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("client"), // "client" | "admin"
+  // Stripe subscription fields
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: text("subscription_status").default("inactive"), // "trialing" | "active" | "past_due" | "canceled" | "inactive"
+  trialEndsAt: text("trial_ends_at"),
+  currentPeriodEnd: text("current_period_end"),
+  // Link to the client record they manage
+  clientId: integer("client_id"),
+  createdAt: text("created_at").notNull().default(new Date().toISOString()),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
 // Clients (sole proprietors / self-employed)
 export const clients = sqliteTable("clients", {
   id: integer("id").primaryKey({ autoIncrement: true }),

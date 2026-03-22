@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { Server } from "http";
 import { storage } from "./storage";
 import {
@@ -7,9 +7,17 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import nodemailer from "nodemailer";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import Stripe from "stripe";
 
 const BOOKKEEPER_EMAIL = "d.d.boutte@theltdgroupllc.com";
-const IRS_MILEAGE_RATE = 0.70; // 2025 rate
+const ADMIN_EMAIL = "d.d.boutte@theltdgroupllc.com";
+const IRS_MILEAGE_RATE = 0.70;
+const STRIPE_PRICE_ID = "price_1TDcX2JPepxyUfEEY3q1i8kS";
+const JWT_SECRET = process.env.JWT_SECRET || "ltd-tracker-secret-2026-change-in-prod";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2025-01-27.acacia" });
 
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
@@ -20,6 +28,40 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
+// ---- AUTH MIDDLEWARE ----
+interface AuthRequest extends Request {
+  userId?: number;
+  userRole?: string;
+}
+
+function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.split(" ")[1] || req.cookies?.token;
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+    req.userId = decoded.userId;
+    req.userRole = decoded.role;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+function adminMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  if (req.userRole !== "admin") return res.status(403).json({ error: "Forbidden" });
+  next();
+}
+
+function subscriptionMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  const user = storage.getUserById(req.userId!);
+  if (!user) return res.status(401).json({ error: "User not found" });
+  if (user.role === "admin") return next(); // admins always have access
+  const active = ["active", "trialing"].includes(user.subscriptionStatus || "");
+  if (!active) return res.status(402).json({ error: "Subscription required", subscriptionStatus: user.subscriptionStatus });
+  next();
+}
+
+// ---- EMAIL HELPERS ----
 function buildSummaryEmailHtml(client: any, summary: any, month: number, year: number) {
   const monthName = MONTH_NAMES[month - 1];
   return `
@@ -80,38 +122,328 @@ function buildSummaryEmailHtml(client: any, summary: any, month: number, year: n
   `;
 }
 
+async function sendEmail(to: string, subject: string, html: string, text: string) {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transporter.sendMail({
+      from: `"LTD Group Tracker" <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      text,
+      html,
+    });
+  } else {
+    console.log(`\n====== EMAIL ======\nTO: ${to}\nSUBJECT: ${subject}\n${text}\n==================\n`);
+  }
+}
+
 export function registerRoutes(httpServer: Server, app: Express) {
-  // ---- CLIENTS ----
-  app.get("/api/clients", (_req, res) => {
-    res.json(storage.getClients());
+
+  // ========== AUTH ROUTES ==========
+
+  // POST /api/auth/register — new subscriber signup
+  app.post("/api/auth/register", async (req, res) => {
+    const { email, password, name } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: "Email, password, and name are required" });
+    }
+    const existing = storage.getUserByEmail(email);
+    if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = storage.createUser({ email, passwordHash, name, role: "client", subscriptionStatus: "inactive" });
+
+    // Create Stripe customer
+    try {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name });
+      storage.updateUser(user.id, { stripeCustomerId: customer.id });
+    } catch (e) {
+      console.error("Stripe customer create error:", e);
+    }
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+    const { passwordHash: _, ...safeUser } = user;
+    res.json({ token, user: safeUser });
   });
 
-  app.get("/api/clients/:id", (req, res) => {
+  // POST /api/auth/login
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+    const user = storage.getUserByEmail(email);
+    if (!user) return res.status(401).json({ error: "Invalid email or password" });
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+    const { passwordHash: _, ...safeUser } = user;
+    res.json({ token, user: safeUser });
+  });
+
+  // GET /api/auth/me — get current user
+  app.get("/api/auth/me", authMiddleware, (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const { passwordHash: _, ...safeUser } = user;
+    res.json(safeUser);
+  });
+
+  // ========== STRIPE ROUTES ==========
+
+  // POST /api/stripe/create-checkout — start subscription checkout
+  app.post("/api/stripe/create-checkout", authMiddleware, async (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const appUrl = process.env.APP_URL || `https://mindyourbiz.up.railway.app`;
+
+    try {
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({ email: user.email, name: user.name });
+        customerId = customer.id;
+        storage.updateUser(user.id, { stripeCustomerId: customerId });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+        mode: "subscription",
+        subscription_data: { trial_period_days: 7 },
+        success_url: `${appUrl}/#/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/#/subscribe`,
+        metadata: { userId: String(user.id) },
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      console.error("Stripe checkout error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/stripe/portal — billing portal for managing subscription
+  app.post("/api/stripe/portal", authMiddleware, async (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (!user?.stripeCustomerId) return res.status(400).json({ error: "No Stripe customer found" });
+
+    const appUrl = process.env.APP_URL || `https://mindyourbiz.up.railway.app`;
+
+    try {
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${appUrl}/#/dashboard`,
+      });
+      res.json({ url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/stripe/subscription-status — check current subscription
+  app.get("/api/stripe/subscription-status", authMiddleware, async (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({
+      status: user.subscriptionStatus,
+      trialEndsAt: user.trialEndsAt,
+      currentPeriodEnd: user.currentPeriodEnd,
+    });
+  });
+
+  // POST /api/stripe/webhook — Stripe sends events here
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event: Stripe.Event;
+    try {
+      if (webhookSecret) {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } else {
+        event = req.body as Stripe.Event;
+      }
+    } catch (err: any) {
+      console.error("Webhook signature error:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const updateSubFromStripe = async (subscription: Stripe.Subscription) => {
+      const customerId = subscription.customer as string;
+      const allUsers = storage.getAllUsers();
+      const user = allUsers.find(u => u.stripeCustomerId === customerId);
+      if (!user) return;
+
+      const status = subscription.status; // active | trialing | past_due | canceled | etc
+      const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
+      const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null;
+
+      storage.updateUser(user.id, {
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: status,
+        trialEndsAt: trialEnd,
+        currentPeriodEnd: periodEnd,
+      });
+
+      // If activated (trial started or active), auto-create a client record if they don't have one
+      if ((status === "active" || status === "trialing") && !user.clientId) {
+        const client = storage.createClient({
+          name: user.name,
+          businessName: user.name + "'s Business",
+          email: user.email,
+          bookkeeperEmail: BOOKKEEPER_EMAIL,
+        });
+        storage.updateUser(user.id, { clientId: client.id });
+
+        // Send welcome email
+        try {
+          await sendEmail(
+            user.email,
+            "Welcome to MindYourBiz Tracker — You're all set!",
+            `<p>Hi ${user.name},</p>
+            <p>Your MindYourBiz Tracker account is active${status === "trialing" ? " (7-day free trial)" : ""}.</p>
+            <p>Log in at <a href="https://mindyourbiz.up.railway.app">mindyourbiz.up.railway.app</a> to start tracking your income, expenses, meals, and mileage.</p>
+            <p>Your bookkeeper at The LTD Group will receive your monthly summary automatically.</p>
+            <p>Questions? Email us at <a href="mailto:clients@theltdgrp.com">clients@theltdgrp.com</a> or call 844-999-2496.</p>`,
+            `Hi ${user.name}, your MindYourBiz Tracker account is active. Log in at https://mindyourbiz.up.railway.app`
+          );
+        } catch (e) {
+          console.error("Welcome email error:", e);
+        }
+      }
+
+      // If canceled or payment failed, notify admin
+      if (status === "canceled" || status === "past_due") {
+        try {
+          await sendEmail(
+            ADMIN_EMAIL,
+            `Subscription ${status}: ${user.name} (${user.email})`,
+            `<p>Subscription status changed to <strong>${status}</strong> for ${user.name} (${user.email}).</p>`,
+            `Subscription ${status} for ${user.name} (${user.email})`
+          );
+        } catch (e) {
+          console.error("Admin notification error:", e);
+        }
+      }
+    };
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.CheckoutSession;
+        if (session.subscription) {
+          const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+          await updateSubFromStripe(sub);
+        }
+        break;
+      }
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted":
+      case "customer.subscription.created": {
+        await updateSubFromStripe(event.data.object as Stripe.Subscription);
+        break;
+      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const allUsers = storage.getAllUsers();
+        const user = allUsers.find(u => u.stripeCustomerId === customerId);
+        if (user) {
+          storage.updateUser(user.id, { subscriptionStatus: "past_due" });
+          try {
+            await sendEmail(
+              user.email,
+              "Payment failed — Action required",
+              `<p>Hi ${user.name}, your payment for MindYourBiz Tracker failed. Please update your payment method to keep access.</p>
+              <p><a href="https://mindyourbiz.up.railway.app/#/billing">Update Payment Method</a></p>`,
+              `Hi ${user.name}, your payment failed. Please update your payment method at https://mindyourbiz.up.railway.app/#/billing`
+            );
+          } catch (e) { console.error(e); }
+        }
+        break;
+      }
+    }
+
+    res.json({ received: true });
+  });
+
+  // ========== ADMIN ROUTES ==========
+
+  // GET /api/admin/subscribers
+  app.get("/api/admin/subscribers", authMiddleware, adminMiddleware, (_req, res) => {
+    const allUsers = storage.getAllUsers().filter(u => u.role !== "admin");
+    const safe = allUsers.map(({ passwordHash: _, ...u }) => u);
+    res.json(safe);
+  });
+
+  // PATCH /api/admin/subscribers/:id — manually update subscription status
+  app.patch("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, (req, res) => {
+    const user = storage.updateUser(Number(req.params.id), req.body);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const { passwordHash: _, ...safe } = user;
+    res.json(safe);
+  });
+
+  // DELETE /api/admin/subscribers/:id
+  app.delete("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, (req, res) => {
+    storage.updateUser(Number(req.params.id), { subscriptionStatus: "canceled" });
+    res.json({ success: true });
+  });
+
+  // ========== PROTECTED CLIENT ROUTES ==========
+  // All routes below require auth + active subscription
+
+  // ---- CLIENTS ----
+  app.get("/api/clients", authMiddleware, subscriptionMiddleware, (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (user?.role === "admin") {
+      return res.json(storage.getClients());
+    }
+    // Regular clients only see their own client record
+    if (user?.clientId) {
+      const client = storage.getClient(user.clientId);
+      return res.json(client ? [client] : []);
+    }
+    res.json([]);
+  });
+
+  app.get("/api/clients/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     const client = storage.getClient(Number(req.params.id));
     if (!client) return res.status(404).json({ error: "Not found" });
     res.json(client);
   });
 
-  app.post("/api/clients", (req, res) => {
+  app.post("/api/clients", authMiddleware, (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (user?.role !== "admin") return res.status(403).json({ error: "Only admins can create clients directly" });
     const parsed = insertClientSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
     const client = storage.createClient(parsed.data);
     res.json(client);
   });
 
-  app.patch("/api/clients/:id", (req, res) => {
+  app.patch("/api/clients/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     const client = storage.updateClient(Number(req.params.id), req.body);
     if (!client) return res.status(404).json({ error: "Not found" });
     res.json(client);
   });
 
-  app.delete("/api/clients/:id", (req, res) => {
+  app.delete("/api/clients/:id", authMiddleware, (req: AuthRequest, res) => {
+    const user = storage.getUserById(req.userId!);
+    if (user?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
     storage.deleteClient(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- INCOME ----
-  app.get("/api/clients/:clientId/income", (req, res) => {
+  app.get("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, (req, res) => {
     const { month, year } = req.query;
     const entries = storage.getIncome(
       Number(req.params.clientId),
@@ -121,126 +453,92 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(entries);
   });
 
-  app.post("/api/clients/:clientId/income", (req, res) => {
+  app.post("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, (req, res) => {
     const body = { ...req.body, clientId: Number(req.params.clientId) };
     const parsed = insertIncomeSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const entry = storage.createIncome(parsed.data);
-    res.json(entry);
+    res.json(storage.createIncome(parsed.data));
   });
 
-  app.delete("/api/income/:id", (req, res) => {
+  app.delete("/api/income/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     storage.deleteIncome(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- EXPENSES ----
-  app.get("/api/clients/:clientId/expenses", (req, res) => {
+  app.get("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, (req, res) => {
     const { month, year } = req.query;
-    const entries = storage.getExpenses(
-      Number(req.params.clientId),
-      month ? Number(month) : undefined,
-      year ? Number(year) : undefined
-    );
-    res.json(entries);
+    res.json(storage.getExpenses(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/expenses", (req, res) => {
+  app.post("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, (req, res) => {
     const body = { ...req.body, clientId: Number(req.params.clientId) };
     const parsed = insertExpenseSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const entry = storage.createExpense(parsed.data);
-    res.json(entry);
+    res.json(storage.createExpense(parsed.data));
   });
 
-  app.delete("/api/expenses/:id", (req, res) => {
+  app.delete("/api/expenses/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     storage.deleteExpense(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MEALS ----
-  app.get("/api/clients/:clientId/meals", (req, res) => {
+  app.get("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, (req, res) => {
     const { month, year } = req.query;
-    const entries = storage.getMeals(
-      Number(req.params.clientId),
-      month ? Number(month) : undefined,
-      year ? Number(year) : undefined
-    );
-    res.json(entries);
+    res.json(storage.getMeals(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/meals", (req, res) => {
+  app.post("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, (req, res) => {
     const amount = Number(req.body.amount);
-    const body = {
-      ...req.body,
-      clientId: Number(req.params.clientId),
-      amount,
-      deductibleAmount: Math.round(amount * 0.5 * 100) / 100,
-    };
+    const body = { ...req.body, clientId: Number(req.params.clientId), amount, deductibleAmount: Math.round(amount * 0.5 * 100) / 100 };
     const parsed = insertMealSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const entry = storage.createMeal(parsed.data);
-    res.json(entry);
+    res.json(storage.createMeal(parsed.data));
   });
 
-  app.delete("/api/meals/:id", (req, res) => {
+  app.delete("/api/meals/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     storage.deleteMeal(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MILEAGE ----
-  app.get("/api/clients/:clientId/mileage", (req, res) => {
+  app.get("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, (req, res) => {
     const { month, year } = req.query;
-    const entries = storage.getMileage(
-      Number(req.params.clientId),
-      month ? Number(month) : undefined,
-      year ? Number(year) : undefined
-    );
-    res.json(entries);
+    res.json(storage.getMileage(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/mileage", (req, res) => {
+  app.post("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, (req, res) => {
     const miles = Number(req.body.miles);
-    const body = {
-      ...req.body,
-      clientId: Number(req.params.clientId),
-      miles,
-      irsRate: IRS_MILEAGE_RATE,
-      deductibleAmount: Math.round(miles * IRS_MILEAGE_RATE * 100) / 100,
-    };
+    const body = { ...req.body, clientId: Number(req.params.clientId), miles, irsRate: IRS_MILEAGE_RATE, deductibleAmount: Math.round(miles * IRS_MILEAGE_RATE * 100) / 100 };
     const parsed = insertMileageSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const entry = storage.createMileage(parsed.data);
-    res.json(entry);
+    res.json(storage.createMileage(parsed.data));
   });
 
-  app.delete("/api/mileage/:id", (req, res) => {
+  app.delete("/api/mileage/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
     storage.deleteMileage(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MONTHLY SUMMARY ----
-  app.get("/api/clients/:clientId/summaries", (req, res) => {
+  app.get("/api/clients/:clientId/summaries", authMiddleware, subscriptionMiddleware, (req, res) => {
     res.json(storage.getSummaries(Number(req.params.clientId)));
   });
 
-  app.get("/api/clients/:clientId/summary/:year/:month", (req, res) => {
+  app.get("/api/clients/:clientId/summary/:year/:month", authMiddleware, subscriptionMiddleware, (req, res) => {
     const { clientId, year, month } = req.params;
-    const summary = storage.getMonthlySummary(Number(clientId), Number(month), Number(year));
-    res.json(summary || null);
+    res.json(storage.getMonthlySummary(Number(clientId), Number(month), Number(year)) || null);
   });
 
-  // Generate / refresh summary for a month
-  app.post("/api/clients/:clientId/summary/:year/:month/generate", (req, res) => {
+  app.post("/api/clients/:clientId/summary/:year/:month/generate", authMiddleware, subscriptionMiddleware, (req, res) => {
     const clientId = Number(req.params.clientId);
     const month = Number(req.params.month);
     const year = Number(req.params.year);
-
     const income = storage.getIncome(clientId, month, year);
     const expenses = storage.getExpenses(clientId, month, year);
     const meals = storage.getMeals(clientId, month, year);
     const mileage = storage.getMileage(clientId, month, year);
-
     const totalIncome = income.reduce((s, r) => s + r.amount, 0);
     const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0);
     const totalMeals = meals.reduce((s, r) => s + r.amount, 0);
@@ -248,36 +546,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const totalMiles = mileage.reduce((s, r) => s + r.miles, 0);
     const totalMileageDeductible = mileage.reduce((s, r) => s + r.deductibleAmount, 0);
     const netProfit = totalIncome - totalExpenses - totalMealDeductible - totalMileageDeductible;
-
-    const summary = storage.upsertMonthlySummary({
-      clientId,
-      month,
-      year,
-      totalIncome,
-      totalExpenses,
-      totalMeals,
-      totalMealDeductible,
-      totalMiles,
-      totalMileageDeductible,
-      netProfit,
-      sentToBookkeeper: false,
-      sentAt: null,
-    });
-    res.json(summary);
+    res.json(storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null }));
   });
 
-  // Send summary to bookkeeper via email
-  app.post("/api/clients/:clientId/summary/:year/:month/send", async (req, res) => {
+  app.post("/api/clients/:clientId/summary/:year/:month/send", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const clientId = Number(req.params.clientId);
     const month = Number(req.params.month);
     const year = Number(req.params.year);
-
     const client = storage.getClient(clientId);
     if (!client) return res.status(404).json({ error: "Client not found" });
-
     let summary = storage.getMonthlySummary(clientId, month, year);
     if (!summary) {
-      // Auto-generate if needed
       const income = storage.getIncome(clientId, month, year);
       const expenses = storage.getExpenses(clientId, month, year);
       const meals = storage.getMeals(clientId, month, year);
@@ -289,65 +568,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const totalMiles = mileage.reduce((s, r) => s + r.miles, 0);
       const totalMileageDeductible = mileage.reduce((s, r) => s + r.deductibleAmount, 0);
       const netProfit = totalIncome - totalExpenses - totalMealDeductible - totalMileageDeductible;
-      summary = storage.upsertMonthlySummary({
-        clientId, month, year, totalIncome, totalExpenses, totalMeals,
-        totalMealDeductible, totalMiles, totalMileageDeductible, netProfit,
-        sentToBookkeeper: false, sentAt: null,
-      });
+      summary = storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null });
     }
-
     const monthName = MONTH_NAMES[month - 1];
     const htmlBody = buildSummaryEmailHtml(client, summary, month, year);
-
-    // Build plain text version
-    const textBody = `
-Monthly Business Summary – ${monthName} ${year}
-
-Client: ${client.name}
-Business: ${client.businessName}
-Email: ${client.email}
-
-FINANCIAL OVERVIEW
-==================
-Total Income:               ${formatCurrency(summary.totalIncome)}
-Total Business Expenses:    ${formatCurrency(summary.totalExpenses)}
-Meal Expenses (actual):     ${formatCurrency(summary.totalMeals)}
-Meal Deduction (50%):       ${formatCurrency(summary.totalMealDeductible)}
-Miles Driven:               ${summary.totalMiles.toFixed(1)} mi
-Mileage Deduction:          ${formatCurrency(summary.totalMileageDeductible)}
-Total Deductible Expenses:  ${formatCurrency(summary.totalExpenses + summary.totalMealDeductible + summary.totalMileageDeductible)}
-Net Profit:                 ${formatCurrency(summary.netProfit)}
-
-Generated by LTD Group Business Tracker.
-    `.trim();
-
+    const textBody = `Monthly Business Summary – ${monthName} ${year}\nClient: ${client.name}\nBusiness: ${client.businessName}\nNet Profit: ${formatCurrency(summary.netProfit)}`;
     try {
-      // Use Gmail SMTP with app password if env vars are set, otherwise log to console
       const bookkeeperEmail = client.bookkeeperEmail || BOOKKEEPER_EMAIL;
-
-      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT) || 587,
-          secure: false,
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        });
-        await transporter.sendMail({
-          from: `"LTD Group Tracker" <${process.env.SMTP_USER}>`,
-          to: bookkeeperEmail,
-          subject: `📊 Monthly Summary: ${client.businessName} – ${monthName} ${year}`,
-          text: textBody,
-          html: htmlBody,
-        });
-      } else {
-        // Log to console when SMTP not configured (demo mode)
-        console.log("\n====== EMAIL TO BOOKKEEPER ======");
-        console.log(`TO: ${bookkeeperEmail}`);
-        console.log(`SUBJECT: Monthly Summary: ${client.businessName} – ${monthName} ${year}`);
-        console.log(textBody);
-        console.log("=================================\n");
-      }
-
+      await sendEmail(bookkeeperEmail, `📊 Monthly Summary: ${client.businessName} – ${monthName} ${year}`, htmlBody, textBody);
       const updated = storage.markSummarySent(summary.id);
       res.json({ success: true, summary: updated, emailSentTo: bookkeeperEmail });
     } catch (err: any) {
