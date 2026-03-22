@@ -153,11 +153,15 @@ export interface IStorage {
   markSummarySent(id: number): MonthlySummary | undefined;
 }
 
-// Auto-promote admin email on startup
+// Auto-promote admin email on startup and reset password if ADMIN_PASSWORD_HASH is set
 const adminEmail = (process.env.ADMIN_EMAIL || "d.d.boutte@theltdgroupllc.com").toLowerCase();
 try {
-  sqlite.exec(`UPDATE users SET role='admin', subscription_status='active' WHERE email='${adminEmail}'`);
-} catch {}
+  if (process.env.ADMIN_PASSWORD_HASH) {
+    sqlite.exec(`UPDATE users SET role='admin', subscription_status='active', password_hash='${process.env.ADMIN_PASSWORD_HASH}' WHERE email='${adminEmail}'`);
+  } else {
+    sqlite.exec(`UPDATE users SET role='admin', subscription_status='active' WHERE email='${adminEmail}'`);
+  }
+} catch (e) { console.error('Admin promote error:', e); }
 
 export const storage: IStorage = {
   getUserByEmail(email) {
