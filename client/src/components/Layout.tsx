@@ -61,7 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <KeyRound size={14}/> Password
                 </Button>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={() => navigate("/pricing")} data-testid="button-billing">
-                  <CreditCard size={14}/> Billing
+                  <CreditCard size={14}/> Subscription
                 </Button>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs" onClick={handleLogout} data-testid="button-logout">
                   <LogOut size={14}/> Sign Out
@@ -93,7 +93,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <KeyRound size={15}/> Change Password
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={() => { navigate("/pricing"); setMenuOpen(false); }}>
-                  <CreditCard size={15}/> Billing
+                  <CreditCard size={15}/> Subscription
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={handleLogout}>
                   <LogOut size={15}/> Sign Out
