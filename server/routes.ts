@@ -53,8 +53,8 @@ function adminMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
   next();
 }
 
-function subscriptionMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
-  const user = storage.getUserById(req.userId!);
+async function subscriptionMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  const user = await storage.getUserById(req.userId!);
   if (!user) return res.status(401).json({ error: "User not found" });
   if (user.role === "admin") return next(); // admins always have access
   const active = ["active", "trialing"].includes(user.subscriptionStatus || "");
@@ -153,16 +153,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (!email || !password || !name) {
       return res.status(400).json({ error: "Email, password, and name are required" });
     }
-    const existing = storage.getUserByEmail(email);
+    const existing = await storage.getUserByEmail(email);
     if (existing) return res.status(409).json({ error: "An account with this email already exists" });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = storage.createUser({ email, passwordHash, name, role: "client", subscriptionStatus: "inactive" });
+    const user = await storage.createUser({ email, passwordHash, name, role: "client", subscriptionStatus: "inactive" });
 
     // Create Stripe customer
     try {
       const customer = await stripe.customers.create({ email: user.email, name: user.name });
-      storage.updateUser(user.id, { stripeCustomerId: customer.id });
+      await storage.updateUser(user.id, { stripeCustomerId: customer.id });
     } catch (e) {
       console.error("Stripe customer create error:", e);
     }
@@ -177,7 +177,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
-    let user = storage.getUserByEmail(email);
+    let user = await storage.getUserByEmail(email);
     if (!user) return res.status(401).json({ error: "Invalid email or password" });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -186,7 +186,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     // Auto-promote admin email on every login
     const adminEmailEnv = (process.env.ADMIN_EMAIL || ADMIN_EMAIL).toLowerCase();
     if (user.email.toLowerCase() === adminEmailEnv && user.role !== "admin") {
-      user = storage.updateUser(user.id, { role: "admin", subscriptionStatus: "active" }) || user;
+      user = await storage.updateUser(user.id, { role: "admin", subscriptionStatus: "active" }) || user;
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
@@ -195,8 +195,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // GET /api/auth/me — get current user
-  app.get("/api/auth/me", authMiddleware, (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+  app.get("/api/auth/me", authMiddleware, async (req: AuthRequest, res) => {
+    const user = await storage.getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safeUser } = user;
     res.json(safeUser);
@@ -207,7 +207,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
 
-    const user = storage.getUserByEmail(email);
+    const user = await storage.getUserByEmail(email);
     // Always return success to prevent email enumeration
     if (!user) return res.json({ success: true });
 
@@ -219,7 +219,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const tempPassword = `${word1}${word2}${num}`;
 
     const passwordHash = await bcrypt.hash(tempPassword, 10);
-    storage.updateUserPassword(email, passwordHash);
+    await storage.updateUserPassword(email, passwordHash);
 
     // Send email with temp password
     const html = `
@@ -252,28 +252,28 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ success: true });
   });
 
-  // ========== STRIPE ROUTES ==========
-
   // POST /api/auth/change-password
   app.post("/api/auth/change-password", authMiddleware, async (req: AuthRequest, res) => {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both passwords are required" });
     if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
 
-    const user = storage.getUserById(req.userId!);
+    const user = await storage.getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
 
     const newHash = await bcrypt.hash(newPassword, 10);
-    storage.updateUserPassword(user.email, newHash);
+    await storage.updateUserPassword(user.email, newHash);
     res.json({ success: true });
   });
 
+  // ========== STRIPE ROUTES ==========
+
   // POST /api/stripe/create-checkout — start subscription checkout
   app.post("/api/stripe/create-checkout", authMiddleware, async (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+    const user = await storage.getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const appUrl = process.env.APP_URL || `https://mindyourbiz.up.railway.app`;
@@ -283,7 +283,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       if (!customerId) {
         const customer = await stripe.customers.create({ email: user.email, name: user.name });
         customerId = customer.id;
-        storage.updateUser(user.id, { stripeCustomerId: customerId });
+        await storage.updateUser(user.id, { stripeCustomerId: customerId });
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -306,7 +306,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/stripe/portal — billing portal for managing subscription
   app.post("/api/stripe/portal", authMiddleware, async (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+    const user = await storage.getUserById(req.userId!);
     if (!user?.stripeCustomerId) return res.status(400).json({ error: "No Stripe customer found" });
 
     const appUrl = process.env.APP_URL || `https://mindyourbiz.up.railway.app`;
@@ -324,7 +324,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // GET /api/stripe/subscription-status — check current subscription
   app.get("/api/stripe/subscription-status", authMiddleware, async (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+    const user = await storage.getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({
       status: user.subscriptionStatus,
@@ -352,7 +352,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
     const updateSubFromStripe = async (subscription: Stripe.Subscription) => {
       const customerId = subscription.customer as string;
-      const allUsers = storage.getAllUsers();
+      const allUsers = await storage.getAllUsers();
       const user = allUsers.find(u => u.stripeCustomerId === customerId);
       if (!user) return;
 
@@ -360,7 +360,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
       const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null;
 
-      storage.updateUser(user.id, {
+      await storage.updateUser(user.id, {
         stripeSubscriptionId: subscription.id,
         subscriptionStatus: status,
         trialEndsAt: trialEnd,
@@ -369,13 +369,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
       // If activated (trial started or active), auto-create a client record if they don't have one
       if ((status === "active" || status === "trialing") && !user.clientId) {
-        const client = storage.createClient({
+        const client = await storage.createClient({
           name: user.name,
           businessName: user.name + "'s Business",
           email: user.email,
           bookkeeperEmail: BOOKKEEPER_EMAIL,
         });
-        storage.updateUser(user.id, { clientId: client.id });
+        await storage.updateUser(user.id, { clientId: client.id });
 
         // Send welcome email
         try {
@@ -427,10 +427,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
-        const allUsers = storage.getAllUsers();
+        const allUsers = await storage.getAllUsers();
         const user = allUsers.find(u => u.stripeCustomerId === customerId);
         if (user) {
-          storage.updateUser(user.id, { subscriptionStatus: "past_due" });
+          await storage.updateUser(user.id, { subscriptionStatus: "past_due" });
           try {
             await sendEmail(
               user.email,
@@ -451,23 +451,23 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ========== ADMIN ROUTES ==========
 
   // GET /api/admin/subscribers
-  app.get("/api/admin/subscribers", authMiddleware, adminMiddleware, (_req, res) => {
-    const allUsers = storage.getAllUsers().filter(u => u.role !== "admin");
-    const safe = allUsers.map(({ passwordHash: _, ...u }) => u);
+  app.get("/api/admin/subscribers", authMiddleware, adminMiddleware, async (_req, res) => {
+    const allUsers = await storage.getAllUsers();
+    const safe = allUsers.filter(u => u.role !== "admin").map(({ passwordHash: _, ...u }) => u);
     res.json(safe);
   });
 
   // PATCH /api/admin/subscribers/:id — manually update subscription status
-  app.patch("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, (req, res) => {
-    const user = storage.updateUser(Number(req.params.id), req.body);
+  app.patch("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    const user = await storage.updateUser(Number(req.params.id), req.body);
     if (!user) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safe } = user;
     res.json(safe);
   });
 
   // DELETE /api/admin/subscribers/:id
-  app.delete("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, (req, res) => {
-    storage.updateUser(Number(req.params.id), { subscriptionStatus: "canceled" });
+  app.delete("/api/admin/subscribers/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    await storage.updateUser(Number(req.params.id), { subscriptionStatus: "canceled" });
     res.json({ success: true });
   });
 
@@ -475,51 +475,51 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // All routes below require auth + active subscription
 
   // ---- CLIENTS ----
-  app.get("/api/clients", authMiddleware, subscriptionMiddleware, (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+  app.get("/api/clients", authMiddleware, subscriptionMiddleware, async (req: AuthRequest, res) => {
+    const user = await storage.getUserById(req.userId!);
     if (user?.role === "admin") {
-      return res.json(storage.getClients());
+      return res.json(await storage.getClients());
     }
     // Regular clients only see their own client record
     if (user?.clientId) {
-      const client = storage.getClient(user.clientId);
+      const client = await storage.getClient(user.clientId);
       return res.json(client ? [client] : []);
     }
     res.json([]);
   });
 
-  app.get("/api/clients/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    const client = storage.getClient(Number(req.params.id));
+  app.get("/api/clients/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    const client = await storage.getClient(Number(req.params.id));
     if (!client) return res.status(404).json({ error: "Not found" });
     res.json(client);
   });
 
-  app.post("/api/clients", authMiddleware, (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+  app.post("/api/clients", authMiddleware, async (req: AuthRequest, res) => {
+    const user = await storage.getUserById(req.userId!);
     if (user?.role !== "admin") return res.status(403).json({ error: "Only admins can create clients directly" });
     const parsed = insertClientSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    const client = storage.createClient(parsed.data);
+    const client = await storage.createClient(parsed.data);
     res.json(client);
   });
 
-  app.patch("/api/clients/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    const client = storage.updateClient(Number(req.params.id), req.body);
+  app.patch("/api/clients/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    const client = await storage.updateClient(Number(req.params.id), req.body);
     if (!client) return res.status(404).json({ error: "Not found" });
     res.json(client);
   });
 
-  app.delete("/api/clients/:id", authMiddleware, (req: AuthRequest, res) => {
-    const user = storage.getUserById(req.userId!);
+  app.delete("/api/clients/:id", authMiddleware, async (req: AuthRequest, res) => {
+    const user = await storage.getUserById(req.userId!);
     if (user?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
-    storage.deleteClient(Number(req.params.id));
+    await storage.deleteClient(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- INCOME ----
-  app.get("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.get("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const { month, year } = req.query;
-    const entries = storage.getIncome(
+    const entries = await storage.getIncome(
       Number(req.params.clientId),
       month ? Number(month) : undefined,
       year ? Number(year) : undefined
@@ -527,92 +527,92 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(entries);
   });
 
-  app.post("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.post("/api/clients/:clientId/income", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const body = { ...req.body, clientId: Number(req.params.clientId) };
     const parsed = insertIncomeSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    res.json(storage.createIncome(parsed.data));
+    res.json(await storage.createIncome(parsed.data));
   });
 
-  app.delete("/api/income/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    storage.deleteIncome(Number(req.params.id));
+  app.delete("/api/income/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    await storage.deleteIncome(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- EXPENSES ----
-  app.get("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.get("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const { month, year } = req.query;
-    res.json(storage.getExpenses(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
+    res.json(await storage.getExpenses(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.post("/api/clients/:clientId/expenses", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const body = { ...req.body, clientId: Number(req.params.clientId) };
     const parsed = insertExpenseSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    res.json(storage.createExpense(parsed.data));
+    res.json(await storage.createExpense(parsed.data));
   });
 
-  app.delete("/api/expenses/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    storage.deleteExpense(Number(req.params.id));
+  app.delete("/api/expenses/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    await storage.deleteExpense(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MEALS ----
-  app.get("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.get("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const { month, year } = req.query;
-    res.json(storage.getMeals(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
+    res.json(await storage.getMeals(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.post("/api/clients/:clientId/meals", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const amount = Number(req.body.amount);
     const body = { ...req.body, clientId: Number(req.params.clientId), amount, deductibleAmount: Math.round(amount * 0.5 * 100) / 100 };
     const parsed = insertMealSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    res.json(storage.createMeal(parsed.data));
+    res.json(await storage.createMeal(parsed.data));
   });
 
-  app.delete("/api/meals/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    storage.deleteMeal(Number(req.params.id));
+  app.delete("/api/meals/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    await storage.deleteMeal(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MILEAGE ----
-  app.get("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.get("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const { month, year } = req.query;
-    res.json(storage.getMileage(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
+    res.json(await storage.getMileage(Number(req.params.clientId), month ? Number(month) : undefined, year ? Number(year) : undefined));
   });
 
-  app.post("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.post("/api/clients/:clientId/mileage", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const miles = Number(req.body.miles);
     const body = { ...req.body, clientId: Number(req.params.clientId), miles, irsRate: IRS_MILEAGE_RATE, deductibleAmount: Math.round(miles * IRS_MILEAGE_RATE * 100) / 100 };
     const parsed = insertMileageSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
-    res.json(storage.createMileage(parsed.data));
+    res.json(await storage.createMileage(parsed.data));
   });
 
-  app.delete("/api/mileage/:id", authMiddleware, subscriptionMiddleware, (req, res) => {
-    storage.deleteMileage(Number(req.params.id));
+  app.delete("/api/mileage/:id", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    await storage.deleteMileage(Number(req.params.id));
     res.json({ success: true });
   });
 
   // ---- MONTHLY SUMMARY ----
-  app.get("/api/clients/:clientId/summaries", authMiddleware, subscriptionMiddleware, (req, res) => {
-    res.json(storage.getSummaries(Number(req.params.clientId)));
+  app.get("/api/clients/:clientId/summaries", authMiddleware, subscriptionMiddleware, async (req, res) => {
+    res.json(await storage.getSummaries(Number(req.params.clientId)));
   });
 
-  app.get("/api/clients/:clientId/summary/:year/:month", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.get("/api/clients/:clientId/summary/:year/:month", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const { clientId, year, month } = req.params;
-    res.json(storage.getMonthlySummary(Number(clientId), Number(month), Number(year)) || null);
+    res.json(await storage.getMonthlySummary(Number(clientId), Number(month), Number(year)) || null);
   });
 
-  app.post("/api/clients/:clientId/summary/:year/:month/generate", authMiddleware, subscriptionMiddleware, (req, res) => {
+  app.post("/api/clients/:clientId/summary/:year/:month/generate", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const clientId = Number(req.params.clientId);
     const month = Number(req.params.month);
     const year = Number(req.params.year);
-    const income = storage.getIncome(clientId, month, year);
-    const expenses = storage.getExpenses(clientId, month, year);
-    const meals = storage.getMeals(clientId, month, year);
-    const mileage = storage.getMileage(clientId, month, year);
+    const income = await storage.getIncome(clientId, month, year);
+    const expenses = await storage.getExpenses(clientId, month, year);
+    const meals = await storage.getMeals(clientId, month, year);
+    const mileage = await storage.getMileage(clientId, month, year);
     const totalIncome = income.reduce((s, r) => s + r.amount, 0);
     const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0);
     const totalMeals = meals.reduce((s, r) => s + r.amount, 0);
@@ -620,21 +620,21 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const totalMiles = mileage.reduce((s, r) => s + r.miles, 0);
     const totalMileageDeductible = mileage.reduce((s, r) => s + r.deductibleAmount, 0);
     const netProfit = totalIncome - totalExpenses - totalMealDeductible - totalMileageDeductible;
-    res.json(storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null }));
+    res.json(await storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null }));
   });
 
   app.post("/api/clients/:clientId/summary/:year/:month/send", authMiddleware, subscriptionMiddleware, async (req, res) => {
     const clientId = Number(req.params.clientId);
     const month = Number(req.params.month);
     const year = Number(req.params.year);
-    const client = storage.getClient(clientId);
+    const client = await storage.getClient(clientId);
     if (!client) return res.status(404).json({ error: "Client not found" });
-    let summary = storage.getMonthlySummary(clientId, month, year);
+    let summary = await storage.getMonthlySummary(clientId, month, year);
     if (!summary) {
-      const income = storage.getIncome(clientId, month, year);
-      const expenses = storage.getExpenses(clientId, month, year);
-      const meals = storage.getMeals(clientId, month, year);
-      const mileage = storage.getMileage(clientId, month, year);
+      const income = await storage.getIncome(clientId, month, year);
+      const expenses = await storage.getExpenses(clientId, month, year);
+      const meals = await storage.getMeals(clientId, month, year);
+      const mileage = await storage.getMileage(clientId, month, year);
       const totalIncome = income.reduce((s, r) => s + r.amount, 0);
       const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0);
       const totalMeals = meals.reduce((s, r) => s + r.amount, 0);
@@ -642,7 +642,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const totalMiles = mileage.reduce((s, r) => s + r.miles, 0);
       const totalMileageDeductible = mileage.reduce((s, r) => s + r.deductibleAmount, 0);
       const netProfit = totalIncome - totalExpenses - totalMealDeductible - totalMileageDeductible;
-      summary = storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null });
+      summary = await storage.upsertMonthlySummary({ clientId, month, year, totalIncome, totalExpenses, totalMeals, totalMealDeductible, totalMiles, totalMileageDeductible, netProfit, sentToBookkeeper: false, sentAt: null });
     }
     const monthName = MONTH_NAMES[month - 1];
     const htmlBody = buildSummaryEmailHtml(client, summary, month, year);
@@ -650,7 +650,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const bookkeeperEmail = client.bookkeeperEmail || BOOKKEEPER_EMAIL;
       await sendEmail(bookkeeperEmail, `📊 Monthly Summary: ${client.businessName} – ${monthName} ${year}`, htmlBody, textBody);
-      const updated = storage.markSummarySent(summary.id);
+      const updated = await storage.markSummarySent(summary.id);
       res.json({ success: true, summary: updated, emailSentTo: bookkeeperEmail });
     } catch (err: any) {
       console.error("Email error:", err);
