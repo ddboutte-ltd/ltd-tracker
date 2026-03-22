@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerStatementRoutes } from "./statementParser";
+import { initDatabase } from "./storage";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import cookieParser from "cookie-parser";
@@ -66,6 +67,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // CRITICAL: Run migrations and seed admin BEFORE accepting any requests
+  await initDatabase();
+
   await registerRoutes(httpServer, app);
   registerStatementRoutes(app);
 

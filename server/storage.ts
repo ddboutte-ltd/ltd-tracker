@@ -14,126 +14,23 @@ import {
   type MonthlySummary, type InsertSummary,
 } from "@shared/schema";
 
-// ---- Database setup: PostgreSQL if DATABASE_URL is set, otherwise SQLite ----
+// ---- Database setup ----
 const DATABASE_URL = process.env.DATABASE_URL;
 
 let db: any;
 let isPostgres = false;
+let pgPool: Pool | null = null;
 
 if (DATABASE_URL) {
   isPostgres = true;
-  const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  db = drizzlePg(pool);
-
-  // Create tables in PostgreSQL
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'client',
-      stripe_customer_id TEXT,
-      stripe_subscription_id TEXT,
-      subscription_status TEXT DEFAULT 'inactive',
-      trial_ends_at TEXT,
-      current_period_end TEXT,
-      client_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT NOW()::TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS clients (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      business_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      ein TEXT,
-      bookkeeper_email TEXT NOT NULL DEFAULT 'd.d.boutte@theltdgroupllc.com'
-    );
-
-    CREATE TABLE IF NOT EXISTS income_entries (
-      id SERIAL PRIMARY KEY,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      source TEXT NOT NULL,
-      description TEXT,
-      amount REAL NOT NULL,
-      category TEXT NOT NULL DEFAULT 'Income'
-    );
-
-    CREATE TABLE IF NOT EXISTS expense_entries (
-      id SERIAL PRIMARY KEY,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      vendor TEXT NOT NULL,
-      description TEXT,
-      amount REAL NOT NULL,
-      category TEXT NOT NULL,
-      receipt_note TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS meal_entries (
-      id SERIAL PRIMARY KEY,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      restaurant TEXT NOT NULL,
-      attendees TEXT,
-      business_purpose TEXT NOT NULL,
-      amount REAL NOT NULL,
-      deductible_amount REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS mileage_entries (
-      id SERIAL PRIMARY KEY,
-      client_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      start_location TEXT NOT NULL,
-      end_location TEXT NOT NULL,
-      business_purpose TEXT NOT NULL,
-      miles REAL NOT NULL,
-      deductible_amount REAL NOT NULL,
-      irs_rate REAL NOT NULL DEFAULT 0.70
-    );
-
-    CREATE TABLE IF NOT EXISTS monthly_summaries (
-      id SERIAL PRIMARY KEY,
-      client_id INTEGER NOT NULL,
-      month INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      total_income REAL NOT NULL,
-      total_expenses REAL NOT NULL,
-      total_meals REAL NOT NULL,
-      total_meal_deductible REAL NOT NULL,
-      total_miles REAL NOT NULL,
-      total_mileage_deductible REAL NOT NULL,
-      net_profit REAL NOT NULL,
-      sent_to_bookkeeper BOOLEAN DEFAULT FALSE,
-      sent_at TEXT
-    );
-  `).then(() => {
-    console.log("[db] PostgreSQL tables ready");
-    // Auto-promote admin on startup
-    const adminEmail = (process.env.ADMIN_EMAIL || "d.d.boutte@theltdgroupllc.com").toLowerCase();
-    pool.query(
-      `UPDATE users SET role='admin', subscription_status='active' WHERE email=$1`,
-      [adminEmail]
-    ).catch(() => {});
-  }).catch(e => console.error("[db] Table creation error:", e));
-
+  pgPool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  db = drizzlePg(pgPool);
 } else {
   // Fallback to SQLite for local development
   const sqlite = new Database("tracker.db");
   db = drizzleSqlite(sqlite);
 
+  // SQLite: create tables synchronously right now (sync is fine for SQLite)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,15 +119,159 @@ if (DATABASE_URL) {
       sent_at TEXT
     );
   `);
+}
 
+// ---- initDatabase: MUST be awaited before server starts listening ----
+// This runs all DDL against PostgreSQL (idempotent CREATE TABLE IF NOT EXISTS)
+// and seeds the admin account if it doesn't exist yet.
+export async function initDatabase(): Promise<void> {
   const adminEmail = (process.env.ADMIN_EMAIL || "d.d.boutte@theltdgroupllc.com").toLowerCase();
-  try {
-    if (process.env.ADMIN_PASSWORD_HASH) {
-      sqlite.exec(`UPDATE users SET role='admin', subscription_status='active', password_hash='${process.env.ADMIN_PASSWORD_HASH}' WHERE email='${adminEmail}'`);
-    } else {
-      sqlite.exec(`UPDATE users SET role='admin', subscription_status='active' WHERE email='${adminEmail}'`);
+  // Fallback hash for password "LTDGroup2026!" — overridden by ADMIN_PASSWORD_HASH env var
+  const adminHash = process.env.ADMIN_PASSWORD_HASH ||
+    "$2b$10$LA2NDT6iuQt8fMvozDahy.cVRddIbPjTHCkHC3yFBY/vXX140Iab.";
+
+  if (!isPostgres || !pgPool) {
+    // SQLite: tables already created above synchronously.
+    // Just ensure admin exists (INSERT OR IGNORE, then UPDATE role).
+    const sqliteDb = db;
+    try {
+      sqliteDb.db?.exec(`
+        INSERT OR IGNORE INTO users (email, password_hash, name, role, subscription_status, created_at)
+        VALUES ('${adminEmail}', '${adminHash}', 'The LTD Group Admin', 'admin', 'active', datetime('now'));
+        UPDATE users SET role='admin', subscription_status='active', password_hash='${adminHash}' WHERE email='${adminEmail}';
+      `);
+    } catch (e) {
+      console.error("[db] SQLite admin seed error:", e);
     }
-  } catch (e) { console.error("Admin promote error:", e); }
+    console.log("[db] SQLite database ready");
+    return;
+  }
+
+  // ---- PostgreSQL path ----
+  console.log("[db] Running PostgreSQL migrations...");
+
+  try {
+    // Step 1: Create all tables (idempotent)
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'client',
+        stripe_customer_id TEXT,
+        stripe_subscription_id TEXT,
+        subscription_status TEXT DEFAULT 'inactive',
+        trial_ends_at TEXT,
+        current_period_end TEXT,
+        client_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS clients (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        business_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        ein TEXT,
+        bookkeeper_email TEXT NOT NULL DEFAULT 'd.d.boutte@theltdgroupllc.com'
+      );
+
+      CREATE TABLE IF NOT EXISTS income_entries (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        description TEXT,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL DEFAULT 'Income'
+      );
+
+      CREATE TABLE IF NOT EXISTS expense_entries (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        vendor TEXT NOT NULL,
+        description TEXT,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        receipt_note TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS meal_entries (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        restaurant TEXT NOT NULL,
+        attendees TEXT,
+        business_purpose TEXT NOT NULL,
+        amount REAL NOT NULL,
+        deductible_amount REAL NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mileage_entries (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        start_location TEXT NOT NULL,
+        end_location TEXT NOT NULL,
+        business_purpose TEXT NOT NULL,
+        miles REAL NOT NULL,
+        deductible_amount REAL NOT NULL,
+        irs_rate REAL NOT NULL DEFAULT 0.70
+      );
+
+      CREATE TABLE IF NOT EXISTS monthly_summaries (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        total_income REAL NOT NULL,
+        total_expenses REAL NOT NULL,
+        total_meals REAL NOT NULL,
+        total_meal_deductible REAL NOT NULL,
+        total_miles REAL NOT NULL,
+        total_mileage_deductible REAL NOT NULL,
+        net_profit REAL NOT NULL,
+        sent_to_bookkeeper BOOLEAN DEFAULT FALSE,
+        sent_at TEXT
+      );
+    `);
+
+    console.log("[db] PostgreSQL tables created/verified");
+
+    // Step 2: Seed admin user if not exists (INSERT ... ON CONFLICT DO UPDATE)
+    // This is idempotent: creates on first deploy, updates role/status on subsequent deploys.
+    await pgPool.query(
+      `INSERT INTO users (email, password_hash, name, role, subscription_status, created_at)
+       VALUES ($1, $2, 'The LTD Group Admin', 'admin', 'active', NOW()::TEXT)
+       ON CONFLICT (email) DO UPDATE
+         SET role = 'admin',
+             subscription_status = 'active',
+             password_hash = CASE
+               WHEN users.password_hash = '' THEN EXCLUDED.password_hash
+               ELSE users.password_hash
+             END`,
+      [adminEmail, adminHash]
+    );
+
+    console.log(`[db] Admin account ensured for ${adminEmail}`);
+    console.log("[db] PostgreSQL database ready ✓");
+
+  } catch (e) {
+    console.error("[db] CRITICAL: Database initialization failed:", e);
+    // Re-throw so the server startup fails loudly rather than serving with no DB
+    throw e;
+  }
 }
 
 // ---- Helper: run query for both PG (async) and SQLite (sync) ----
