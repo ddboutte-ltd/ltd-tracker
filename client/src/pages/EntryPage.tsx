@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Trash2, ArrowLeft, FileText, DollarSign, UtensilsCrossed, Car, TrendingDown } from "lucide-react";
+import { PlusCircle, Trash2, ArrowLeft, FileText, DollarSign, UtensilsCrossed, Car, TrendingDown, Upload } from "lucide-react";
 import type { Client, Income, Expense, Meal, Mileage } from "@shared/schema";
+import BankStatementUpload from "@/components/BankStatementUpload";
 
 const MONTHS = [
   "January","February","March","April","May","June",
@@ -147,22 +148,25 @@ export default function EntryPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="income">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="income" className="gap-1.5 text-xs" data-testid="tab-income">
-            <DollarSign size={12}/>Income
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="income" className="gap-1 text-xs" data-testid="tab-income">
+            <DollarSign size={11}/>Income
             {income && income.length > 0 && <Badge variant="secondary" className="text-xs h-4 px-1 ml-1">{income.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="gap-1.5 text-xs" data-testid="tab-expenses">
-            <TrendingDown size={12}/>Expenses
+          <TabsTrigger value="expenses" className="gap-1 text-xs" data-testid="tab-expenses">
+            <TrendingDown size={11}/>Expenses
             {expenses && expenses.length > 0 && <Badge variant="secondary" className="text-xs h-4 px-1 ml-1">{expenses.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="meals" className="gap-1.5 text-xs" data-testid="tab-meals">
-            <UtensilsCrossed size={12}/>Meals
+          <TabsTrigger value="meals" className="gap-1 text-xs" data-testid="tab-meals">
+            <UtensilsCrossed size={11}/>Meals
             {meals && meals.length > 0 && <Badge variant="secondary" className="text-xs h-4 px-1 ml-1">{meals.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="mileage" className="gap-1.5 text-xs" data-testid="tab-mileage">
-            <Car size={12}/>Mileage
+          <TabsTrigger value="mileage" className="gap-1 text-xs" data-testid="tab-mileage">
+            <Car size={11}/>Mileage
             {mileage && mileage.length > 0 && <Badge variant="secondary" className="text-xs h-4 px-1 ml-1">{mileage.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="import" className="gap-1 text-xs" data-testid="tab-import">
+            <Upload size={11}/><span className="hidden sm:inline">Import</span><span className="sm:hidden">AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -177,6 +181,27 @@ export default function EntryPage() {
         </TabsContent>
         <TabsContent value="mileage" className="space-y-4 mt-4">
           <MileageTab clientId={clientId} month={month} year={year} mileage={mileage} isLoading={loadingMileage} toast={toast}/>
+        </TabsContent>
+        <TabsContent value="import" className="mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Upload size={14} className="text-primary"/>
+                Import Bank Statement
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Upload a PDF or CSV bank statement. AI reads and categorizes each transaction — you review before anything is saved.</p>
+            </CardHeader>
+            <CardContent>
+              <BankStatementUpload
+                clientId={clientId}
+                onDone={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "income", month, year] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "expenses", month, year] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "meals", month, year] });
+                }}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
