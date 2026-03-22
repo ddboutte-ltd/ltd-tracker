@@ -12,6 +12,7 @@ interface AuthUser {
   currentPeriodEnd: string | null;
   clientId: number | null;
   stripeCustomerId: string | null;
+  subscriptionPlan: string | null;
 }
 
 interface AuthContextType {

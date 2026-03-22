@@ -15,6 +15,7 @@ import ChangePassword from "@/pages/ChangePassword";
 import Subscribe from "@/pages/Subscribe";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import AdminPanel from "@/pages/AdminPanel";
+import Pricing from "@/pages/Pricing";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 
@@ -39,6 +40,7 @@ function ProtectedApp() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/pricing" component={Pricing} />
 
       {/* Subscription success — needs auth but not active sub */}
       <Route path="/subscription/success">
@@ -58,8 +60,8 @@ function ProtectedApp() {
           const isActive = ["active", "trialing"].includes(user.subscriptionStatus || "");
           const isAdmin = user.role === "admin";
 
-          // Non-admin without active subscription → go subscribe
-          if (!isActive && !isAdmin) return <Subscribe />;
+          // Non-admin without active subscription → go to pricing
+          if (!isActive && !isAdmin) return <Pricing />;
 
           return (
             <Layout>

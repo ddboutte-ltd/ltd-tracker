@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import logoImg from "@assets/ltd-group-logo.jpg";
-import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, KeyRound } from "lucide-react";
+import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, KeyRound, CreditCard } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import TrialBanner from "@/components/TrialBanner";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
@@ -27,6 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <TrialBanner />
 
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-30 shadow-sm">
@@ -58,6 +60,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={() => navigate("/change-password")} data-testid="button-change-password">
                   <KeyRound size={14}/> Password
                 </Button>
+                <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={() => navigate("/pricing")} data-testid="button-billing">
+                  <CreditCard size={14}/> Billing
+                </Button>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs" onClick={handleLogout} data-testid="button-logout">
                   <LogOut size={14}/> Sign Out
                 </Button>
@@ -86,6 +91,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={() => { navigate("/change-password"); setMenuOpen(false); }}>
                   <KeyRound size={15}/> Change Password
+                </Button>
+                <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={() => { navigate("/pricing"); setMenuOpen(false); }}>
+                  <CreditCard size={15}/> Billing
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={handleLogout}>
                   <LogOut size={15}/> Sign Out

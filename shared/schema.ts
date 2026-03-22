@@ -17,6 +17,7 @@ export const users = sqliteTable("users", {
   currentPeriodEnd: text("current_period_end"),
   // Link to the client record they manage
   clientId: integer("client_id"),
+  subscriptionPlan: text("subscription_plan"), // "monthly" | "annual"
   createdAt: text("created_at").notNull().default(new Date().toISOString()),
 });
 

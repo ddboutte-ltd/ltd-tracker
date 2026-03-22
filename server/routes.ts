@@ -15,7 +15,9 @@ import crypto from "crypto";
 const BOOKKEEPER_EMAIL = "d.d.boutte@theltdgroupllc.com";
 const ADMIN_EMAIL = "d.d.boutte@theltdgroupllc.com";
 const IRS_MILEAGE_RATE = 0.70;
-const STRIPE_PRICE_ID = "price_1TDcX2JPepxyUfEEY3q1i8kS";
+// Price IDs from env (set in Railway) — fallback to hardcoded for safety
+const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || "price_1TDlgCJPepxyUfEE9FMOV5yH";
+const STRIPE_ANNUAL_PRICE_ID  = process.env.STRIPE_ANNUAL_PRICE_ID  || "price_1TDlgCJPepxyUfEEdKusP5P8";
 const JWT_SECRET = process.env.JWT_SECRET || "ltd-tracker-secret-2026-change-in-prod";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2025-01-27.acacia" });
@@ -284,11 +286,19 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ========== STRIPE ROUTES ==========
 
   // POST /api/stripe/create-checkout — start subscription checkout
+  // Body: { priceId?: string }  — defaults to monthly if not provided
   app.post("/api/stripe/create-checkout", authMiddleware, async (req: AuthRequest, res) => {
     const user = await storage.getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const appUrl = process.env.APP_URL || `https://mindyourbiz.up.railway.app`;
+    const appUrl = process.env.APP_URL || "https://mindyourbiz.up.railway.app";
+
+    // Accept priceId from body, validate it's one of our known prices
+    const requestedPriceId = req.body?.priceId as string | undefined;
+    const validPriceIds = [STRIPE_MONTHLY_PRICE_ID, STRIPE_ANNUAL_PRICE_ID];
+    const priceId = requestedPriceId && validPriceIds.includes(requestedPriceId)
+      ? requestedPriceId
+      : STRIPE_MONTHLY_PRICE_ID;
 
     try {
       let customerId = user.stripeCustomerId;
@@ -301,11 +311,11 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ["card"],
-        line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
         subscription_data: { trial_period_days: 7 },
-        success_url: `${appUrl}/#/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/#/subscribe`,
+        success_url: `${appUrl}/#/dashboard?subscribed=true`,
+        cancel_url: `${appUrl}/#/pricing`,
         metadata: { userId: String(user.id) },
       });
 
@@ -372,11 +382,18 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
       const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null;
 
+      // Detect plan from price ID on the subscription
+      const priceId = subscription.items?.data?.[0]?.price?.id;
+      const plan = priceId === STRIPE_ANNUAL_PRICE_ID ? "annual"
+                 : priceId === STRIPE_MONTHLY_PRICE_ID ? "monthly"
+                 : undefined;
+
       await storage.updateUser(user.id, {
         stripeSubscriptionId: subscription.id,
         subscriptionStatus: status,
         trialEndsAt: trialEnd,
         currentPeriodEnd: periodEnd,
+        ...(plan ? { subscriptionPlan: plan } : {}),
       });
 
       // If activated (trial started or active), auto-create a client record if they don't have one
@@ -436,6 +453,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
         await updateSubFromStripe(event.data.object as Stripe.Subscription);
         break;
       }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const allUsersSucceeded = await storage.getAllUsers();
+        const userSucceeded = allUsersSucceeded.find(u => u.stripeCustomerId === customerId);
+        if (userSucceeded) {
+          await storage.updateUser(userSucceeded.id, { subscriptionStatus: "active" });
+        }
+        break;
+      }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
@@ -443,13 +470,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
         const user = allUsers.find(u => u.stripeCustomerId === customerId);
         if (user) {
           await storage.updateUser(user.id, { subscriptionStatus: "past_due" });
+          const appUrl = process.env.APP_URL || "https://mindyourbiz.up.railway.app";
           try {
             await sendEmail(
               user.email,
               "Payment failed — Action required",
               `<p>Hi ${user.name}, your payment for MindYourBiz Tracker failed. Please update your payment method to keep access.</p>
-              <p><a href="https://mindyourbiz.up.railway.app/#/billing">Update Payment Method</a></p>`,
-              `Hi ${user.name}, your payment failed. Please update your payment method at https://mindyourbiz.up.railway.app/#/billing`
+              <p><a href="${appUrl}/#/pricing">Update Payment Method</a></p>`,
+              `Hi ${user.name}, your payment failed. Update your method at ${appUrl}/#/pricing`
             );
           } catch (e) { console.error(e); }
         }

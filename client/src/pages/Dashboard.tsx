@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Users, TrendingUp, ArrowRight, PlusCircle, FileText } from "lucide-react";
 import type { Client } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Dashboard() {
+  const { refreshUser } = useAuth();
+
+  // After returning from Stripe checkout, refresh user to pick up new subscription status
+  useEffect(() => {
+    if (window.location.hash.includes("subscribed=true")) {
+      refreshUser();
+    }
+  }, []);
   const { data: clients, isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
   });

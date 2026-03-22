@@ -58,8 +58,12 @@ export async function initDatabase(): Promise<void> {
         trial_ends_at TEXT,
         current_period_end TEXT,
         client_id INTEGER,
+        subscription_plan TEXT,
         created_at TEXT NOT NULL DEFAULT NOW()::TEXT
       );
+
+      -- Add subscription_plan column if upgrading an existing DB
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan TEXT;
 
       CREATE TABLE IF NOT EXISTS clients (
         id SERIAL PRIMARY KEY,
