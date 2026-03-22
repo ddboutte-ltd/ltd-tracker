@@ -6,7 +6,7 @@ import {
   insertMealSchema, insertMileageSchema
 } from "@shared/schema";
 import { z } from "zod";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
@@ -123,41 +123,36 @@ function buildSummaryEmailHtml(client: any, summary: any, month: number, year: n
   `;
 }
 
-// Build transporter once at runtime so env vars are read after startup
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const port = Number(process.env.SMTP_PORT) || 587;
-
-  if (!host || !user || !pass) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,           // true only for port 465 (SSL), false for 587 (STARTTLS)
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false }, // required in Railway containers
-    connectionTimeout: 10000,       // 10s — fail fast instead of hanging
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  });
-}
+// ---- Email via Resend API (HTTPS — works on Railway, no SMTP port needed) ----
+// Set RESEND_API_KEY in Railway environment variables.
+// FROM address: use your verified domain address once DNS is set up,
+// or keep onboarding@resend.dev for testing (Resend allows this by default).
+const RESEND_FROM = "MindYourBiz Tracker <onboarding@resend.dev>";
 
 async function sendEmail(to: string, subject: string, html: string, text: string) {
-  const transporter = getTransporter();
-  if (transporter) {
-    await transporter.sendMail({
-      from: `"LTD Group Tracker" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-    });
-    console.log(`[email] Sent to ${to}: ${subject}`);
-  } else {
-    console.log(`\n====== EMAIL (no SMTP configured) ======\nTO: ${to}\nSUBJECT: ${subject}\n${text}\n==================\n`);
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    // No key set — log to console so Railway logs capture it
+    console.log(`[email] RESEND_API_KEY not set. Would have sent:\nTO: ${to}\nSUBJECT: ${subject}\n${text}`);
+    return;
   }
+
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.emails.send({
+    from: RESEND_FROM,
+    to,
+    subject,
+    html,
+    text,
+  });
+
+  if (error) {
+    console.error(`[email] Resend error:`, error);
+    throw new Error(error.message);
+  }
+
+  console.log(`[email] Sent via Resend to ${to} — id: ${data?.id}`);
 }
 
 export function registerRoutes(httpServer: Server, app: Express) {
