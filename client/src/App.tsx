@@ -66,7 +66,7 @@ function ProtectedApp() {
           return (
             <Layout>
               <Switch>
-                <Route path="/" component={Dashboard} />
+                <Route path="/" component={Dashboard} />                   <Route path="/dashboard" component={Dashboard} />
                 <Route path="/change-password" component={ChangePassword} />
                 {isAdmin && <Route path="/clients" component={ClientSetup} />}
                 {isAdmin && <Route path="/admin" component={AdminPanel} />}
