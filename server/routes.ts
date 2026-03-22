@@ -176,11 +176,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
-    const user = storage.getUserByEmail(email);
+    let user = storage.getUserByEmail(email);
     if (!user) return res.status(401).json({ error: "Invalid email or password" });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+    // Auto-promote admin email on every login
+    const adminEmailEnv = (process.env.ADMIN_EMAIL || ADMIN_EMAIL).toLowerCase();
+    if (user.email.toLowerCase() === adminEmailEnv && user.role !== "admin") {
+      user = storage.updateUser(user.id, { role: "admin", subscriptionStatus: "active" }) || user;
+    }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
     const { passwordHash: _, ...safeUser } = user;
