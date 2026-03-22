@@ -60,8 +60,8 @@ export default function Register() {
             </div>
           </div>
           <div>
-            <h2 className="text-2xl font-bold mb-2">Create your free account</h2>
-            <p className="text-muted-foreground">Start tracking your business finances today.</p>
+            <h2 className="text-2xl font-bold mb-2">Start Your Free Trial</h2>
+            <p className="text-muted-foreground">Try MindYourBiz Tracker free for 7 days.</p>
           </div>
           <ul className="space-y-3">
             {FEATURES.map(f => (
@@ -80,7 +80,7 @@ export default function Register() {
         <Card>
           <CardHeader>
             <CardTitle>Create your account</CardTitle>
-            <CardDescription>Free access — no credit card required</CardDescription>
+            <CardDescription>Free for 7 days, then $9.99/month — cancel anytime</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
