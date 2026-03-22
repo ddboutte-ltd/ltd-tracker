@@ -123,14 +123,30 @@ function buildSummaryEmailHtml(client: any, summary: any, month: number, year: n
   `;
 }
 
+// Build transporter once at runtime so env vars are read after startup
+function getTransporter() {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const port = Number(process.env.SMTP_PORT) || 587;
+
+  if (!host || !user || !pass) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,           // true only for port 465 (SSL), false for 587 (STARTTLS)
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }, // required in Railway containers
+    connectionTimeout: 10000,       // 10s — fail fast instead of hanging
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+  });
+}
+
 async function sendEmail(to: string, subject: string, html: string, text: string) {
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: false,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
+  const transporter = getTransporter();
+  if (transporter) {
     await transporter.sendMail({
       from: `"LTD Group Tracker" <${process.env.SMTP_USER}>`,
       to,
@@ -138,8 +154,9 @@ async function sendEmail(to: string, subject: string, html: string, text: string
       text,
       html,
     });
+    console.log(`[email] Sent to ${to}: ${subject}`);
   } else {
-    console.log(`\n====== EMAIL ======\nTO: ${to}\nSUBJECT: ${subject}\n${text}\n==================\n`);
+    console.log(`\n====== EMAIL (no SMTP configured) ======\nTO: ${to}\nSUBJECT: ${subject}\n${text}\n==================\n`);
   }
 }
 
