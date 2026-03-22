@@ -17,7 +17,7 @@ const FEATURES = [
   "Auto-calculate IRS deductions (50% meals, $0.70/mi)",
   "Monthly summaries emailed to your bookkeeper",
   "Unlimited entries per month",
-  "Bank statement import with AI categorization",
+  
   "Access from any device",
 ];
 
