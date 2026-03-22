@@ -75,7 +75,16 @@ export default function Login() {
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => navigate("/forgot-password")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="link-forgot-password"
+              >
+                Forgot your password?
+              </button>
+            </div>
+            <div className="mt-3 text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <button
                 onClick={() => navigate("/register")}

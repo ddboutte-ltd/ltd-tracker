@@ -10,6 +10,7 @@ import nodemailer from "nodemailer";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
+import crypto from "crypto";
 
 const BOOKKEEPER_EMAIL = "d.d.boutte@theltdgroupllc.com";
 const ADMIN_EMAIL = "d.d.boutte@theltdgroupllc.com";
@@ -199,6 +200,56 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (!user) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safeUser } = user;
     res.json(safeUser);
+  });
+
+  // POST /api/auth/forgot-password — send temporary password via email
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const user = storage.getUserByEmail(email);
+    // Always return success to prevent email enumeration
+    if (!user) return res.json({ success: true });
+
+    // Generate a readable temporary password
+    const words = ["Blue","Star","Fire","Gold","Tree","Rain","Moon","Wind","Rock","Leaf"];
+    const word1 = words[Math.floor(Math.random() * words.length)];
+    const word2 = words[Math.floor(Math.random() * words.length)];
+    const num = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `${word1}${word2}${num}`;
+
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    storage.updateUserPassword(email, passwordHash);
+
+    // Send email with temp password
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">
+        <img src="https://mindyourbiz.up.railway.app/assets/ltd-group-logo-CwFWGTMd.jpg" width="60" style="border-radius:50%" />
+        <h2 style="color:#1a3a6b">Password Reset — MindYourBiz Tracker</h2>
+        <p>Hi ${user.name},</p>
+        <p>Your temporary password is:</p>
+        <div style="background:#f0f4ff;border:2px solid #3b5bdb;border-radius:8px;padding:16px;text-align:center;font-size:22px;font-weight:bold;letter-spacing:2px;color:#1a3a6b">
+          ${tempPassword}
+        </div>
+        <p style="margin-top:16px">Use this to log in at <a href="https://mindyourbiz.up.railway.app">mindyourbiz.up.railway.app</a>.</p>
+        <p style="color:#888;font-size:12px">If you didn't request this, ignore this email. Your account is safe.</p>
+        <hr style="margin-top:24px;border:none;border-top:1px solid #eee"/>
+        <p style="color:#888;font-size:11px">The LTD Group LLC · 844-999-2496 · clients@theltdgrp.com</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail(
+        user.email,
+        "Your MindYourBiz Tracker temporary password",
+        html,
+        `Your temporary password is: ${tempPassword} — Log in at https://mindyourbiz.up.railway.app`
+      );
+    } catch (e) {
+      console.error("Password reset email error:", e);
+    }
+
+    res.json({ success: true });
   });
 
   // ========== STRIPE ROUTES ==========

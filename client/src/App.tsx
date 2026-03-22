@@ -10,6 +10,7 @@ import EntryPage from "@/pages/EntryPage";
 import MonthlySummary from "@/pages/MonthlySummary";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Subscribe from "@/pages/Subscribe";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import AdminPanel from "@/pages/AdminPanel";
@@ -36,6 +37,7 @@ function ProtectedApp() {
       {/* Public routes — no auth needed */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
 
       {/* Subscription success — needs auth but not active sub */}
       <Route path="/subscription/success">

@@ -118,6 +118,7 @@ export interface IStorage {
   createUser(data: Omit<InsertUser, 'createdAt'>): User;
   updateUser(id: number, data: Partial<User>): User | undefined;
   getAllUsers(): User[];
+  updateUserPassword(email: string, newHash: string): boolean;
 
   // Clients
   getClients(): Client[];
@@ -178,6 +179,13 @@ export const storage: IStorage = {
   },
   getAllUsers() {
     return db.select().from(users).all();
+  },
+  updateUserPassword(email, newHash) {
+    const result = db.update(users)
+      .set({ passwordHash: newHash })
+      .where(eq(users.email, email.toLowerCase()))
+      .run();
+    return result.changes > 0;
   },
 
   getClients() {
