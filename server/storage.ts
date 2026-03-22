@@ -148,11 +148,7 @@ export async function initDatabase(): Promise<void> {
        VALUES ($1, $2, 'The LTD Group Admin', 'admin', 'active', NOW()::TEXT)
        ON CONFLICT (email) DO UPDATE
          SET role = 'admin',
-             subscription_status = 'active',
-             password_hash = CASE
-               WHEN users.password_hash = '' THEN EXCLUDED.password_hash
-               ELSE users.password_hash
-             END`,
+             subscription_status = 'active'`,
       [adminEmail, adminHash]
     );
 
