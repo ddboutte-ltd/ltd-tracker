@@ -13,7 +13,7 @@ const FEATURES = [
   "Track income, expenses, meals & mileage",
   "Auto-calculate IRS deductions",
   "Monthly summaries sent to your bookkeeper",
-  "7-day free trial — no charge until day 8",
+  "Designed for sole proprietors & self-employed",
 ];
 
 export default function Register() {
@@ -39,8 +39,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(email, password, name);
-      // Go to subscribe page to enter card details
-      navigate("/subscribe");
+      navigate("/");
     } catch (err: any) {
       toast({ title: "Registration failed", description: err.message, variant: "destructive" });
     } finally {
@@ -61,8 +60,8 @@ export default function Register() {
             </div>
           </div>
           <div>
-            <h2 className="text-2xl font-bold mb-2">Start your 7-day free trial</h2>
-            <p className="text-muted-foreground">Then just $9.99/month. Cancel anytime.</p>
+            <h2 className="text-2xl font-bold mb-2">Create your free account</h2>
+            <p className="text-muted-foreground">Start tracking your business finances today.</p>
           </div>
           <ul className="space-y-3">
             {FEATURES.map(f => (
@@ -81,7 +80,7 @@ export default function Register() {
         <Card>
           <CardHeader>
             <CardTitle>Create your account</CardTitle>
-            <CardDescription>Free for 7 days, then $9.99/month</CardDescription>
+            <CardDescription>Free access — no credit card required</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,7 +101,7 @@ export default function Register() {
                 <Input id="confirm" type="password" placeholder="Repeat password" value={confirm} onChange={e => setConfirm(e.target.value)} required data-testid="input-confirm" />
               </div>
               <Button type="submit" className="w-full" disabled={loading} data-testid="button-register">
-                {loading ? "Creating account..." : "Create Account & Continue"}
+                {loading ? "Creating account..." : "Create Free Account"}
               </Button>
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">

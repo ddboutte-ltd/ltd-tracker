@@ -1,33 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import logoImg from "@assets/ltd-group-logo.jpg";
-import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, CreditCard, KeyRound } from "lucide-react";
+import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, KeyRound } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { toast } = useToast();
-
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
-
-  const handleManageBilling = async () => {
-    try {
-      const res = await apiRequest("POST", "/api/stripe/portal");
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch {
-      toast({ title: "Could not open billing portal", variant: "destructive" });
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -40,29 +25,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ...(user?.role === "admin" ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
   ];
 
-  const subStatus = user?.subscriptionStatus;
-  const isTrialing = subStatus === "trialing";
-  const isPastDue = subStatus === "past_due";
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Subscription warning banner */}
-      {isPastDue && (
-        <div className="bg-yellow-500 text-black text-sm text-center py-2 px-4">
-          Your payment failed. Please{" "}
-          <button onClick={handleManageBilling} className="underline font-semibold">update your payment method</button>{" "}
-          to keep access.
-        </div>
-      )}
 
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-30 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logoImg} alt="The LTD Group LLC" className="shrink-0 rounded-full object-cover" style={{ width: 40, height: 40 }} />
-            {isTrialing && (
-              <Badge className="bg-blue-500 hover:bg-blue-500 text-white text-xs hidden sm:inline-flex">Trial</Badge>
-            )}
           </div>
 
           {/* Desktop Nav */}
@@ -87,9 +57,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={() => navigate("/change-password")} data-testid="button-change-password">
                   <KeyRound size={14}/> Password
-                </Button>
-                <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={handleManageBilling} data-testid="button-billing">
-                  <CreditCard size={14}/> Billing
                 </Button>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs" onClick={handleLogout} data-testid="button-logout">
                   <LogOut size={14}/> Sign Out
@@ -119,9 +86,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={() => { navigate("/change-password"); setMenuOpen(false); }}>
                   <KeyRound size={15}/> Change Password
-                </Button>
-                <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={handleManageBilling}>
-                  <CreditCard size={15}/> Billing
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={handleLogout}>
                   <LogOut size={15}/> Sign Out

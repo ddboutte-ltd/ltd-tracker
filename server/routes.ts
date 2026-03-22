@@ -157,7 +157,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (existing) return res.status(409).json({ error: "An account with this email already exists" });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await storage.createUser({ email, passwordHash, name, role: "client", subscriptionStatus: "inactive" });
+    const user = await storage.createUser({ email, passwordHash, name, role: "client", subscriptionStatus: "active" });
 
     // Create Stripe customer
     try {
