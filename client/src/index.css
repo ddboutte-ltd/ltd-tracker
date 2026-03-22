@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* LTD Group light mode — clean white base, brand blue primary */
+    --background: 240 10% 97%;
+    --foreground: 240 15% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 15% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 15% 10%;
+
+    /* Electric blue — LTD letters color */
+    --primary: 237 82% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 237 30% 92%;
+    --secondary-foreground: 237 50% 20%;
+
+    --muted: 237 20% 94%;
+    --muted-foreground: 237 10% 48%;
+
+    /* Brand green accent */
+    --accent: 130 80% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 237 20% 87%;
+    --input: 237 20% 87%;
+    --ring: 237 82% 55%;
+
+    --radius: 0.5rem;
+
+    /* Category colors */
+    --income: 130 80% 32%;
+    --expense: 0 72% 51%;
+    --meal: 270 60% 55%;
+    --mileage: 237 82% 55%;
+  }
+
+  .dark {
+    /* LTD Group dark mode — matches the actual logo: black bg, blue/green brand */
+    --background: 240 15% 5%;
+    --foreground: 0 0% 92%;
+
+    --card: 240 12% 9%;
+    --card-foreground: 0 0% 92%;
+
+    --popover: 240 12% 9%;
+    --popover-foreground: 0 0% 92%;
+
+    /* Electric blue */
+    --primary: 237 90% 65%;
+    --primary-foreground: 240 15% 5%;
+
+    --secondary: 237 25% 16%;
+    --secondary-foreground: 0 0% 85%;
+
+    --muted: 237 20% 13%;
+    --muted-foreground: 237 10% 52%;
+
+    /* Brand green */
+    --accent: 130 75% 45%;
+    --accent-foreground: 240 15% 5%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 237 20% 18%;
+    --input: 237 20% 18%;
+    --ring: 237 90% 65%;
+
+    --income: 130 70% 45%;
+    --expense: 0 65% 55%;
+    --meal: 270 65% 65%;
+    --mileage: 237 90% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'DM Serif Display', Georgia, serif;
+  }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+
+/* Stat cards */
+.stat-income { border-left: 3px solid hsl(var(--income)); }
+.stat-expense { border-left: 3px solid hsl(var(--expense)); }
+.stat-meal { border-left: 3px solid hsl(var(--meal)); }
+.stat-mileage { border-left: 3px solid hsl(var(--mileage)); }
+.stat-profit { border-left: 3px solid hsl(var(--primary)); }
+
+/* Table row hover */
+.entry-row:hover { background: hsl(var(--muted) / 0.5); }
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.25s ease-out; }
