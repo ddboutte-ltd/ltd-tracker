@@ -153,6 +153,12 @@ export interface IStorage {
   markSummarySent(id: number): MonthlySummary | undefined;
 }
 
+// Auto-promote admin email on startup
+const adminEmail = (process.env.ADMIN_EMAIL || "d.d.boutte@theltdgroupllc.com").toLowerCase();
+try {
+  sqlite.exec(`UPDATE users SET role='admin', subscription_status='active' WHERE email='${adminEmail}'`);
+} catch {}
+
 export const storage: IStorage = {
   getUserByEmail(email) {
     return db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
