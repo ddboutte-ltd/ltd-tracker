@@ -11,6 +11,7 @@ import MonthlySummary from "@/pages/MonthlySummary";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
+import ChangePassword from "@/pages/ChangePassword";
 import Subscribe from "@/pages/Subscribe";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import AdminPanel from "@/pages/AdminPanel";
@@ -64,6 +65,7 @@ function ProtectedApp() {
             <Layout>
               <Switch>
                 <Route path="/" component={Dashboard} />
+                <Route path="/change-password" component={ChangePassword} />
                 {isAdmin && <Route path="/clients" component={ClientSetup} />}
                 {isAdmin && <Route path="/admin" component={AdminPanel} />}
                 <Route path="/clients/:id/entries" component={EntryPage} />

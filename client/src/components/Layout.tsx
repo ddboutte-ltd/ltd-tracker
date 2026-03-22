@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import logoImg from "@assets/ltd-group-logo.jpg";
-import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, Sun, Moon, Menu, X, ShieldCheck, LogOut, CreditCard, KeyRound } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +85,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             {user && (
               <>
+                <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={() => navigate("/change-password")} data-testid="button-change-password">
+                  <KeyRound size={14}/> Password
+                </Button>
                 <Button variant="ghost" size="sm" className="hidden md:flex gap-1 text-xs text-muted-foreground" onClick={handleManageBilling} data-testid="button-billing">
                   <CreditCard size={14}/> Billing
                 </Button>
@@ -114,6 +117,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
             {user && (
               <>
+                <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={() => { navigate("/change-password"); setMenuOpen(false); }}>
+                  <KeyRound size={15}/> Change Password
+                </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" size="sm" onClick={handleManageBilling}>
                   <CreditCard size={15}/> Billing
                 </Button>

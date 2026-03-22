@@ -254,6 +254,23 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ========== STRIPE ROUTES ==========
 
+  // POST /api/auth/change-password
+  app.post("/api/auth/change-password", authMiddleware, async (req: AuthRequest, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both passwords are required" });
+    if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+
+    const user = storage.getUserById(req.userId!);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    storage.updateUserPassword(user.email, newHash);
+    res.json({ success: true });
+  });
+
   // POST /api/stripe/create-checkout — start subscription checkout
   app.post("/api/stripe/create-checkout", authMiddleware, async (req: AuthRequest, res) => {
     const user = storage.getUserById(req.userId!);
