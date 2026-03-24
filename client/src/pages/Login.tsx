@@ -34,16 +34,26 @@ export default function Login() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
           <img src={logoPath} alt="The LTD Group" className="w-20 h-20 rounded-full object-cover" />
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-foreground">MindYourBiz Tracker</h1>
-            <p className="text-sm text-muted-foreground">by The LTD Group LLC</p>
+          <div className="text-center space-y-2">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">MindYourBiz Tracker</h1>
+              <p className="text-sm text-muted-foreground">by The LTD Group LLC</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Track income, expenses, mileage, and meals—without the headache.
+            </p>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <div>📊 Stay tax-ready all year</div>
+              <div>💰 Capture every deduction</div>
+              <div>⚡ Built for business owners</div>
+            </div>
           </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Sign In</CardTitle>
-            <CardDescription>Access your business expense tracker</CardDescription>
+            <CardDescription>Access your full business tracker</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,8 +101,11 @@ export default function Login() {
                 className="text-primary hover:underline font-medium"
                 data-testid="link-register"
               >
-                Start your free trial
+                Start tracking your business in minutes
               </button>
+            </div>
+            <div className="mt-4 text-center text-xs text-muted-foreground">
+              Powered by The LTD Group • Secure & private
             </div>
           </CardContent>
         </Card>
