@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAXiOS — Never Lose Another Tax Deduction</title>
+<meta name="description" content="TAXiOS helps entrepreneurs track income, expenses, meals & mileage in 30 seconds a day — with IRS deductions calculated automatically and bookkeeper-ready monthly summaries.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tx-primary: #2E38EA;        /* TAXiOS Indigo */
+    --tx-primary-dark: #1F27B8;
+    --tx-navy: #0A0C2E;           /* TAXiOS Deep Navy */
+    --tx-ink: #14163A;
+    --tx-green: #10B981;          /* Deduction Green */
+    --tx-light: #F5F6FF;
+    --tx-white: #FFFFFF;
+    --tx-muted: #5B5E85;
+    --tx-border: #E3E5F5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--tx-ink); background: var(--tx-white); line-height: 1.6; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .btn { display: inline-block; padding: 16px 32px; border-radius: 10px; font-weight: 700; font-size: 17px; text-decoration: none; transition: all .18s ease; cursor: pointer; border: none; }
+  .btn-primary { background: var(--tx-primary); color: #fff; box-shadow: 0 8px 24px rgba(46,56,234,.35); }
+  .btn-primary:hover { background: var(--tx-primary-dark); transform: translateY(-2px); }
+  .btn-ghost { background: transparent; color: var(--tx-primary); border: 2px solid var(--tx-primary); }
+  .btn-ghost:hover { background: var(--tx-light); }
+  .eyebrow { display: inline-block; background: rgba(46,56,234,.1); color: var(--tx-primary); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+  h1, h2, h3 { line-height: 1.15; font-weight: 800; }
+  section { padding: 88px 0; }
+
+  /* Nav */
+  .nav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--tx-border); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .logo { font-size: 24px; font-weight: 900; color: var(--tx-navy); text-decoration: none; letter-spacing: -0.5px; }
+  .logo span { color: var(--tx-primary); }
+  .nav .btn { padding: 10px 22px; font-size: 15px; }
+
+  /* Hero */
+  .hero { background: linear-gradient(160deg, var(--tx-navy) 0%, #151A5E 55%, var(--tx-primary-dark) 100%); color: #fff; padding: 96px 0 110px; text-align: center; }
+  .hero h1 { font-size: clamp(36px, 5.5vw, 60px); max-width: 820px; margin: 0 auto 22px; }
+  .hero h1 em { font-style: normal; color: #8B93FF; }
+  .hero p.sub { font-size: 20px; color: #C3C7F0; max-width: 640px; margin: 0 auto 36px; }
+  .hero .trust { margin-top: 18px; font-size: 14px; color: #9AA0D8; }
+  .hero-stats { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 56px; }
+  .stat-card { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 20px 28px; min-width: 190px; }
+  .stat-card .num { font-size: 30px; font-weight: 800; color: #fff; }
+  .stat-card .lbl { font-size: 13px; color: #A9AEE0; margin-top: 4px; }
+  .stat-card.green .num { color: var(--tx-green); }
+
+  /* Pain */
+  .pain { background: var(--tx-white); text-align: center; }
+  .pain h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 14px; }
+  .pain .lead { color: var(--tx-muted); font-size: 18px; max-width: 680px; margin: 0 auto 48px; }
+  .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; text-align: left; }
+  .pain-card { background: var(--tx-light); border: 1px solid var(--tx-border); border-radius: 14px; padding: 26px; }
+  .pain-card .x { font-size: 22px; margin-bottom: 10px; }
+  .pain-card h3 { font-size: 18px; margin-bottom: 8px; }
+  .pain-card p { color: var(--tx-muted); font-size: 15px; }
+
+  /* Features */
+  .features { background: var(--tx-light); }
+  .features .head { text-align: center; max-width: 700px; margin: 0 auto 56px; }
+  .features h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 14px; }
+  .features .head p { color: var(--tx-muted); font-size: 18px; }
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+  .feat-card { background: #fff; border: 1px solid var(--tx-border); border-radius: 16px; padding: 30px; transition: box-shadow .18s ease; }
+  .feat-card:hover { box-shadow: 0 12px 32px rgba(20,22,58,.08); }
+  .feat-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(46,56,234,.1); display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 16px; }
+  .feat-card h3 { font-size: 19px; margin-bottom: 8px; }
+  .feat-card p { color: var(--tx-muted); font-size: 15px; }
+
+  /* How it works */
+  .how { text-align: center; }
+  .how h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 56px; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px; }
+  .step .n { width: 52px; height: 52px; border-radius: 50%; background: var(--tx-primary); color: #fff; font-weight: 800; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }
+  .step h3 { font-size: 19px; margin-bottom: 8px; }
+  .step p { color: var(--tx-muted); font-size: 15px; }
+
+  /* ROI band */
+  .roi { background: var(--tx-navy); color: #fff; text-align: center; }
+  .roi h2 { font-size: clamp(26px, 3.6vw, 38px); max-width: 760px; margin: 0 auto 18px; }
+  .roi h2 span { color: var(--tx-green); }
+  .roi p { color: #B9BEE8; max-width: 640px; margin: 0 auto 34px; font-size: 17px; }
+  .roi small { display: block; margin-top: 26px; color: #7A80B8; font-size: 12px; }
+
+  /* Pricing */
+  .pricing { background: var(--tx-light); text-align: center; }
+  .pricing h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 10px; }
+  .pricing .lead { color: var(--tx-muted); margin-bottom: 52px; font-size: 18px; }
+  .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 340px)); gap: 24px; justify-content: center; }
+  .price-card { background: #fff; border: 1px solid var(--tx-border); border-radius: 18px; padding: 36px 30px; text-align: left; position: relative; }
+  .price-card.featured { border: 2px solid var(--tx-primary); box-shadow: 0 16px 44px rgba(46,56,234,.16); }
+  .badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--tx-green); color: #fff; font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
+  .price-card .plan { font-size: 15px; font-weight: 700; color: var(--tx-muted); text-transform: uppercase; letter-spacing: .06em; }
+  .price-card .amount { font-size: 46px; font-weight: 900; margin: 10px 0 2px; color: var(--tx-navy); }
+  .price-card .amount small { font-size: 17px; font-weight: 500; color: var(--tx-muted); }
+  .price-card .note { color: var(--tx-muted); font-size: 14px; margin-bottom: 22px; }
+  .price-card ul { list-style: none; margin-bottom: 26px; }
+  .price-card li { padding: 7px 0 7px 28px; position: relative; font-size: 15px; }
+  .price-card li::before { content: "✓"; position: absolute; left: 0; color: var(--tx-green); font-weight: 800; }
+  .price-card .btn { width: 100%; text-align: center; }
+
+  /* FAQ */
+  .faq h2 { font-size: clamp(28px, 4vw, 40px); text-align: center; margin-bottom: 48px; }
+  .faq-item { border-bottom: 1px solid var(--tx-border); padding: 22px 0; max-width: 760px; margin: 0 auto; }
+  .faq-item h3 { font-size: 18px; margin-bottom: 8px; }
+  .faq-item p { color: var(--tx-muted); font-size: 15px; }
+
+  /* Final CTA */
+  .final { background: linear-gradient(135deg, var(--tx-primary) 0%, var(--tx-primary-dark) 100%); color: #fff; text-align: center; border-radius: 24px; padding: 72px 32px; margin: 0 24px; }
+  .final h2 { font-size: clamp(28px, 4vw, 42px); margin-bottom: 14px; }
+  .final p { color: #D5D8FF; font-size: 18px; margin-bottom: 32px; }
+  .final .btn { background: #fff; color: var(--tx-primary); }
+  .final .btn:hover { background: var(--tx-light); }
+
+  footer { padding: 48px 0; text-align: center; color: var(--tx-muted); font-size: 13px; }
+  footer .logo { font-size: 20px; display: inline-block; margin-bottom: 12px; }
+  footer .disclaimer { max-width: 640px; margin: 14px auto 0; font-size: 12px; color: #8A8DB0; }
+
+  @media (max-width: 640px) {
+    section { padding: 60px 0; }
+    .hero { padding: 64px 0 72px; }
+    .btn { width: 100%; text-align: center; }
+    .nav .btn { width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="#top">TAX<span>iOS</span></a>
+    <a class="btn btn-primary" href="#pricing">Start Free Trial</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="container">
+    <span class="eyebrow" style="background:rgba(139,147,255,.15);color:#8B93FF;">Built for entrepreneurs, by entrepreneurs</span>
+    <h1>Stop Leaving Tax Deductions <em>on the Table</em></h1>
+    <p class="sub">TAXiOS tracks your income, expenses, meals &amp; mileage in 30 seconds a day — calculates your IRS deductions automatically, and emails a clean monthly summary straight to your bookkeeper.</p>
+    <a class="btn btn-primary" href="#pricing">Start Your Free Trial →</a>
+    <div class="trust">No credit card gymnastics · Cancel anytime · Works on any device</div>
+    <div class="hero-stats">
+      <div class="stat-card green"><div class="num">$0.70/mi</div><div class="lbl">Mileage deduction, auto-calculated</div></div>
+      <div class="stat-card"><div class="num">50%</div><div class="lbl">Meal deduction, applied for you</div></div>
+      <div class="stat-card"><div class="num">30 sec</div><div class="lbl">To log an entry from your phone</div></div>
+    </div>
+  </div>
+</header>
+
+<section class="pain">
+  <div class="container">
+    <span class="eyebrow">Sound familiar?</span>
+    <h2>Tax season shouldn't feel like a shoebox full of receipts</h2>
+    <p class="lead">Most entrepreneurs lose thousands in deductions every year — not because they don't qualify, but because they didn't track.</p>
+    <div class="pain-grid">
+      <div class="pain-card"><div class="x">🧾</div><h3>Receipts everywhere, records nowhere</h3><p>Glove box, email, wallet, "I'll remember it later." By April, half your deductible expenses have vanished.</p></div>
+      <div class="pain-card"><div class="x">🚗</div><h3>Untracked miles = unclaimed money</h3><p>Every business mile you drive is worth $0.70 off your taxable income. Most owners claim a fraction of what they drove.</p></div>
+      <div class="pain-card"><div class="x">📉</div><h3>Your bookkeeper is flying blind</h3><p>Handing over a messy spreadsheet (or nothing) in January means higher prep fees, missed write-offs, and guesswork.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="container">
+    <div class="head">
+      <span class="eyebrow">The Platform</span>
+      <h2>Everything you need. Nothing you don't.</h2>
+      <p>TAXiOS is deliberately simple — one system for the four numbers that actually drive your tax bill.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card"><div class="feat-icon">💰</div><h3>Income, Expenses, Meals &amp; Mileage</h3><p>Log all four entry types in one place, from any device. No bloated accounting suite — just the records the IRS cares about.</p></div>
+      <div class="feat-card"><div class="feat-icon">🧮</div><h3>IRS Deductions, Auto-Calculated</h3><p>TAXiOS applies the 50% meal deduction and the $0.70/mile standard mileage rate for you. No lookup tables, no math, no mistakes.</p></div>
+      <div class="feat-card"><div class="feat-icon">📬</div><h3>Bookkeeper-Ready Monthly Summaries</h3><p>Every month, a clean summary of your activity is emailed straight to your bookkeeper. They'll love you for it.</p></div>
+      <div class="feat-card"><div class="feat-icon">♾️</div><h3>Unlimited Entries</h3><p>Log every coffee meeting, every client drive, every invoice. No caps, no per-entry fees, no "upgrade to continue."</p></div>
+      <div class="feat-card"><div class="feat-icon">📱</div><h3>Any Device, Anywhere</h3><p>Phone at the job site, laptop at the office, tablet on the couch. Your records sync and stay with you.</p></div>
+      <div class="feat-card"><div class="feat-icon">📊</div><h3>Monthly Profit at a Glance</h3><p>See income, expenses, and deductions roll up into a real-time picture of your month — before your accountant does.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <div class="container">
+    <span class="eyebrow" style="display:table;margin:0 auto 18px;">How it works</span>
+    <h2>From "I'll deal with it later" to done — in 3 steps</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Log it in 30 seconds</h3><p>Grabbed lunch with a client? Drove to a supplier? Open TAXiOS, tap, done.</p></div>
+      <div class="step"><div class="n">2</div><h3>TAXiOS does the math</h3><p>Deduction rules are applied automatically the moment you save an entry.</p></div>
+      <div class="step"><div class="n">3</div><h3>Your bookkeeper gets the summary</h3><p>A clean monthly report lands in their inbox. Tax season becomes a formality.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="roi">
+  <div class="container">
+    <span class="eyebrow" style="background:rgba(16,185,129,.15);color:var(--tx-green);">Do the math</span>
+    <h2>Drive just 300 business miles a month? That's <span>$2,520/year</span> in deductions.</h2>
+    <p>At $0.70 per mile, mileage alone can pay for TAXiOS many times over — and that's before a single meal or expense is counted. The only miles that count are the ones you tracked.</p>
+    <a class="btn btn-primary" href="#pricing">Start Tracking Today →</a>
+    <small>Illustrative example based on the standard mileage rate. Your tax savings depend on your situation — consult your tax professional.</small>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="container">
+    <span class="eyebrow">Simple pricing</span>
+    <h2>Less than the deduction on one client lunch</h2>
+    <p class="lead">Start with a free trial. Keep it only if it pays for itself.</p>
+    <div class="price-grid">
+      <div class="price-card">
+        <div class="plan">Monthly</div>
+        <div class="amount">$9.99<small>/month</small></div>
+        <div class="note">Billed monthly · Cancel anytime</div>
+        <ul>
+          <li>Track income, expenses, meals &amp; mileage</li>
+          <li>Auto-calculated IRS deductions</li>
+          <li>Monthly summaries emailed to your bookkeeper</li>
+          <li>Unlimited entries</li>
+          <li>Access from any device</li>
+        </ul>
+        <a class="btn btn-primary" href="{{REGISTER_URL}}">Start Free Trial →</a>
+      </div>
+      <div class="price-card featured">
+        <div class="badge">Best value — save $20/year</div>
+        <div class="plan">Annual</div>
+        <div class="amount">$99.99<small>/year</small></div>
+        <div class="note">Billed annually · Two months on us</div>
+        <ul>
+          <li>Everything in Monthly</li>
+          <li>Save $20 every year</li>
+          <li>One payment, zero interruptions</li>
+          <li>Lock in your rate</li>
+        </ul>
+        <a class="btn btn-primary" href="{{REGISTER_URL}}">Start Free Trial →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="faq">
+  <div class="container">
+    <h2>Questions entrepreneurs actually ask</h2>
+    <div class="faq-item"><h3>Is this a replacement for my bookkeeper or accountant?</h3><p>No — it makes them better. TAXiOS captures clean records all year and delivers them monthly, so your tax pro spends time saving you money instead of deciphering receipts.</p></div>
+    <div class="faq-item"><h3>I'm not "techy." How hard is it?</h3><p>If you can send a text, you can use TAXiOS. Logging an entry takes about 30 seconds, and there's nothing to install — it works in your browser on any device.</p></div>
+    <div class="faq-item"><h3>What exactly gets calculated automatically?</h3><p>The 50% business meal deduction and the $0.70-per-mile standard mileage deduction are applied to your entries automatically, and everything rolls into your monthly summary.</p></div>
+    <div class="faq-item"><h3>Can I cancel?</h3><p>Anytime, in one click, from your subscription page. No phone calls, no retention scripts.</p></div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="final">
+    <h2>Every untracked mile is money you already earned — and gave back.</h2>
+    <p>Start your free trial and make this the last tax season you scramble.</p>
+    <a class="btn" href="{{REGISTER_URL}}">Start Your Free Trial →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <a class="logo" href="#top">TAX<span>iOS</span></a>
+    <div>© 2026 TAXiOS · A product of The LTD Group LLC</div>
+    <p class="disclaimer">TAXiOS is a record-keeping tool and does not provide tax, legal, or accounting advice. Deduction rates referenced reflect current IRS standard rates and may change. Consult your tax professional regarding your specific situation.</p>
+  </div>
+</footer>
+
+</body>
+</html>

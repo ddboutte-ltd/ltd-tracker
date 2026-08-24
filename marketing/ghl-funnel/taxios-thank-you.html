@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're In — TAXiOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tx-primary: #2E38EA;
+    --tx-primary-dark: #1F27B8;
+    --tx-navy: #0A0C2E;
+    --tx-green: #10B981;
+    --tx-light: #F5F6FF;
+    --tx-muted: #5B5E85;
+    --tx-border: #E3E5F5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: linear-gradient(160deg, var(--tx-navy) 0%, #151A5E 60%, var(--tx-primary-dark) 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; color: #14163A; }
+  .card { background: #fff; border-radius: 20px; max-width: 560px; width: 100%; padding: 48px 40px; text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,.35); }
+  .logo { font-size: 26px; font-weight: 900; color: var(--tx-navy); letter-spacing: -0.5px; margin-bottom: 24px; }
+  .logo span { color: var(--tx-primary); }
+  .check { width: 72px; height: 72px; border-radius: 50%; background: rgba(16,185,129,.12); color: var(--tx-green); font-size: 36px; display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; }
+  h1 { font-size: 30px; font-weight: 800; margin-bottom: 12px; line-height: 1.2; }
+  p.sub { color: var(--tx-muted); font-size: 16px; margin-bottom: 30px; }
+  .next { text-align: left; background: var(--tx-light); border: 1px solid var(--tx-border); border-radius: 14px; padding: 22px 24px; margin-bottom: 30px; }
+  .next h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .07em; color: var(--tx-primary); margin-bottom: 12px; }
+  .next ol { padding-left: 20px; }
+  .next li { margin: 8px 0; font-size: 15px; }
+  .btn { display: inline-block; padding: 16px 32px; border-radius: 10px; font-weight: 700; font-size: 16px; text-decoration: none; background: var(--tx-primary); color: #fff; box-shadow: 0 8px 24px rgba(46,56,234,.35); transition: all .18s ease; }
+  .btn:hover { background: var(--tx-primary-dark); transform: translateY(-2px); }
+  .fine { margin-top: 20px; font-size: 13px; color: var(--tx-muted); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">TAX<span>iOS</span></div>
+    <div class="check">✓</div>
+    <h1>You're in. Welcome to TAXiOS.</h1>
+    <p class="sub">Check your inbox — your login details and a 2-minute quick-start guide are on the way.</p>
+    <div class="next">
+      <h2>Do this in the next 5 minutes</h2>
+      <ol>
+        <li><strong>Log in</strong> and add your first entry — an expense, a mile, anything.</li>
+        <li><strong>Add your bookkeeper's email</strong> so monthly summaries go out automatically.</li>
+        <li><strong>Bookmark TAXiOS on your phone</strong> — that's where deductions get captured.</li>
+      </ol>
+    </div>
+    <a class="btn" href="{{LOGIN_URL}}">Go to My Dashboard →</a>
+    <p class="fine">Questions? Just reply to your welcome email — a real human reads it.</p>
+  </div>
+</body>
+</html>
