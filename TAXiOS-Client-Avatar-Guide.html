@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TAXiOS Client Avatar Guide</title>
+<style>
+  /* Brand tokens. Swap these if the official TAXiOS palette differs. */
+  :root {
+    --black: #07070d;
+    --ink: #14142b;
+    --blue: #2f6bff;
+    --violet: #5b2bd6;
+    --green: #2bd62b;
+    --green-deep: #138a2a;
+    --mist: #eef0fb;
+    --line: #d6d9ee;
+    --body: #262640;
+  }
+  @page { size: 8.5in 11in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--body); font-size: 11pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .page { width: 8.5in; height: 11in; position: relative; overflow: hidden; page-break-after: always; background: #fff; }
+  .page:last-child { page-break-after: auto; }
+
+  /* wordmark (provisional) */
+  .wordmark { font-weight: 900; letter-spacing: 1px; font-size: 22pt; color: #fff; line-height: 1; }
+  .wordmark .i { color: var(--green); }
+  .wordmark .os { color: #6f95ff; }
+  .wordmark.dark { color: var(--ink); }
+  .wordmark.dark .os { color: var(--blue); }
+  .wordmark.dark .i { color: var(--green-deep); }
+
+  /* cover */
+  .cover { background: radial-gradient(circle at 80% 15%, #1d2bb8 0%, rgba(29,43,184,0) 45%), radial-gradient(circle at 10% 95%, #4a1fb5 0%, rgba(74,31,181,0) 50%), var(--black); color: #fff; padding: 0.8in; }
+  .cover .ring { position: absolute; right: -2.9in; top: 5.6in; width: 6in; height: 6in; border-radius: 50%; border: 14px solid transparent; background: linear-gradient(var(--black), var(--black)) padding-box, linear-gradient(160deg, var(--blue), var(--violet)) border-box; opacity: .9; }
+  .cover .wordmark { font-size: 34pt; }
+  .cover .kicker { margin-top: 2.1in; color: var(--green); font-weight: 800; letter-spacing: 4px; font-size: 11pt; text-transform: uppercase; }
+  .cover h1 { font-size: 54pt; line-height: 1.0; margin: 0.15in 0 0.2in; font-weight: 900; max-width: 6in; position: relative; }
+  .cover h1 span { color: var(--green); }
+  .cover .sub { font-size: 14pt; max-width: 4.3in; color: #cfd6ff; position: relative; }
+  .cover .byline { position: absolute; left: 0.8in; bottom: 0.7in; right: 0.8in; font-size: 9pt; color: #aeb6e8; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
+  .cover .byline b { color: #fff; }
+
+  /* interior */
+  .hdr { background: var(--black); color: #fff; height: 0.7in; padding: 0 0.7in; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--blue), var(--violet), var(--green)) 1; }
+  .hdr .wordmark { font-size: 15pt; }
+  .hdr .tag { font-size: 8.5pt; color: #b8c0f0; letter-spacing: 2px; text-transform: uppercase; }
+  .body { padding: 0.45in 0.7in 0.9in; }
+  .ftr { position: absolute; left: 0.7in; right: 0.7in; bottom: 0.32in; font-size: 7.5pt; color: #6b6f95; border-top: 1px solid var(--line); padding-top: 0.08in; display: flex; justify-content: space-between; }
+
+  h2 { font-size: 24pt; margin: 0 0 4px; color: var(--ink); font-weight: 900; line-height: 1.1; }
+  h2 em { font-style: normal; color: var(--blue); }
+  .lede { font-size: 12pt; color: #4a4d75; margin: 0 0 0.25in; }
+  h3 { font-size: 12.5pt; margin: 0 0 4px; color: var(--ink); }
+  p { margin: 0 0 8px; }
+  ul { margin: 0 0 8px; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+
+  .callout { border-left: 6px solid var(--green); background: var(--mist); padding: 0.14in 0.2in; border-radius: 0 10px 10px 0; margin: 0.18in 0; }
+  .callout b.t { color: var(--green-deep); text-transform: uppercase; letter-spacing: 1.5px; font-size: 8.5pt; display: block; margin-bottom: 2px; }
+  .callout.blue { border-left-color: var(--blue); }
+  .callout.blue b.t { color: var(--blue); }
+
+  .steps { display: grid; gap: 0.12in; }
+  .step { display: grid; grid-template-columns: 0.55in 1fr; gap: 0.15in; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 0.13in 0.18in; }
+  .num { width: 0.55in; height: 0.55in; border-radius: 50%; background: linear-gradient(160deg, var(--blue), var(--violet)); color: #fff; font-weight: 900; font-size: 18pt; display: flex; align-items: center; justify-content: center; }
+  .step p { margin: 0; font-size: 10pt; }
+  .step h3 { font-size: 11.5pt; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2in; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 0.15in 0.18in; }
+  .card h3 { color: var(--blue); text-transform: uppercase; letter-spacing: 1.5px; font-size: 9pt; }
+  .card ul { font-size: 10pt; }
+
+  /* avatar profile card */
+  .avatar { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
+  .avatar .top { background: linear-gradient(135deg, var(--black), #1b1f8a 60%, var(--violet)); color: #fff; padding: 0.2in 0.25in; display: flex; gap: 0.2in; align-items: center; }
+  .avatar .pic { width: 0.95in; height: 0.95in; border-radius: 50%; border: 3px solid var(--green); display: flex; align-items: center; justify-content: center; font-size: 30pt; font-weight: 900; color: var(--green); background: rgba(255,255,255,.06); flex: none; }
+  .avatar .top h3 { color: #fff; font-size: 20pt; margin: 0; }
+  .avatar .top small { color: #c5ccff; font-size: 10pt; }
+  .avatar .grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .avatar .cell { padding: 0.12in 0.2in; border-top: 1px solid var(--line); font-size: 9.5pt; }
+  .avatar .cell:nth-child(odd) { border-right: 1px solid var(--line); }
+  .avatar .cell h4 { margin: 0 0 3px; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: var(--violet); }
+  .avatar .cell ul { padding-left: 15px; margin: 0; }
+  .avatar .wide { grid-column: 1 / -1; background: var(--mist); border-right: 0 !important; }
+  .quote { font-style: italic; color: var(--ink); }
+
+  /* worksheet */
+  .ws { display: grid; grid-template-columns: 1fr 1fr; gap: 0.1in 0.2in; }
+  .field { border: 1px solid var(--line); border-radius: 10px; padding: 0.07in 0.12in; min-height: 1.02in; }
+  .field.short { min-height: 0.72in; }
+  .field.full { grid-column: 1 / -1; min-height: 0.8in; }
+  .field label { display: block; font-size: 8pt; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: var(--blue); }
+  .field small { display: block; color: #7b7fa3; font-size: 8pt; margin-top: 1px; }
+
+  .hooks { counter-reset: h; display: grid; gap: 0.08in; }
+  .hook { display: grid; grid-template-columns: 0.32in 1fr; gap: 0.1in; font-size: 10pt; align-items: start; }
+  .hook::before { counter-increment: h; content: counter(h); background: var(--green); color: var(--black); font-weight: 900; border-radius: 50%; width: 0.28in; height: 0.28in; display: flex; align-items: center; justify-content: center; font-size: 10pt; }
+
+  .check li { list-style: none; position: relative; padding-left: 0.28in; }
+  .check li::before { content: ""; position: absolute; left: 0; top: 2px; width: 0.16in; height: 0.16in; border: 2px solid var(--blue); border-radius: 4px; }
+
+  .back { background: radial-gradient(circle at 20% 10%, #1d2bb8 0%, rgba(29,43,184,0) 45%), var(--black); color: #fff; padding: 0.8in; display: flex; flex-direction: column; justify-content: space-between; }
+  .back h2 { color: #fff; font-size: 30pt; }
+  .back h2 em { color: var(--green); }
+  .back p { color: #cfd6ff; max-width: 5.6in; font-size: 12pt; }
+  .back .legal { font-size: 8.5pt; color: #aeb6e8; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
+</style>
+</head>
+<body>
+
+<!-- 1 COVER -->
+<section class="page cover">
+  <div class="ring"></div>
+  <div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div>
+  <div class="kicker">Mentee Playbook · Social Media Edition</div>
+  <h1>The Client<br><span>Avatar</span><br>Guide</h1>
+  <div class="sub">Stop marketing to "everybody who files taxes." Build the one person your business is actually built for, then talk directly to them.</div>
+  <div class="byline"><b>Created by The LTD Group for TAXiOS</b> · October 2026<br>© 2026 The LTD Group LLC and TAXiOS. All rights reserved.</div>
+</section>
+
+<!-- 2 WHY -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Guide</div></div>
+  <div class="body">
+    <h2>Why you need an <em>avatar</em></h2>
+    <p class="lede">An avatar is a detailed, semi-fictional portrait of your ideal client. Not a demographic. A person.</p>
+
+    <div class="two">
+      <div class="card">
+        <h3>Without an avatar</h3>
+        <ul>
+          <li>"I do taxes for everyone!" (and attract nobody)</li>
+          <li>Posts that sound like every other preparer</li>
+          <li>Price shoppers, last-minute filers, and "can you just do it for free?" texts</li>
+          <li>Services built around what you feel like selling</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>With an avatar</h3>
+        <ul>
+          <li>Content that makes someone think "she's talking about me"</li>
+          <li>Clear offers, clear pricing, clear referrals</li>
+          <li>Clients who fit your skills and pay on time</li>
+          <li>A year-round business, not a 10-week sprint</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b class="t">Know-it-all truth</b>
+      Your target market is a category ("self-employed people"). Your avatar is a human being ("a 34-year-old with a day job and a DoorDash habit who is terrified of the IRS"). Categories don't buy. People do.
+    </div>
+
+    <h3>What an avatar does for you</h3>
+    <ul>
+      <li><b>Sharpens your message.</b> You stop writing posts for a crowd and start writing them for one person.</li>
+      <li><b>Drives your offer.</b> Their problems decide your services, not the other way around.</li>
+      <li><b>Cuts your ad and content waste.</b> You know where they are and what makes them stop scrolling.</li>
+      <li><b>Makes referrals easy.</b> People can say "go to her, she works with people like you."</li>
+    </ul>
+
+    <div class="callout blue">
+      <b class="t">Heads up</b>
+      One avatar to start. Mentees who build five avatars on day one end up with five half-baked messages. Nail one, get clients, then add a second.
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 2</span></div>
+</section>
+
+<!-- 3 STEPS -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Guide</div></div>
+  <div class="body">
+    <h2>The <em>7-step</em> build</h2>
+    <p class="lede">Do these in order. Use the worksheet on page 6 as you go.</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div><h3>Start with the clients you already love</h3><p>List your 5 best clients: easy to work with, paid on time, referred others. What do they have in common? Job type, life stage, income pattern, the problem that brought them to you. Your real data beats guessing.</p></div></div>
+      <div class="step"><div class="num">2</div><div><h3>Name them and give them a face</h3><p>"Side-Hustle Sheila." "Landlord Larry." A name makes the avatar stick in your head and your team's. Add a photo (stock is fine) so you can picture who you're writing to.</p></div></div>
+      <div class="step"><div class="num">3</div><div><h3>Map the basics</h3><p>Age range, location, family situation, occupation, income pattern (W-2, 1099, business owner, mixed), filing complexity. Keep it to what changes how you serve them. Skip trivia.</p></div></div>
+      <div class="step"><div class="num">4</div><div><h3>Dig into pain, fear, and goals</h3><p>What keeps them up at night (a balance due, an IRS notice, not knowing their numbers)? What do they want (keep more, stop panicking, get organized, qualify for a loan)? Write it in their words, not tax jargon.</p></div></div>
+      <div class="step"><div class="num">5</div><div><h3>Find their objections</h3><p>"TurboTax is cheaper." "My cousin does mine for $50." "I don't have anything to deduct." Know every reason they hesitate so you can answer it before they ask.</p></div></div>
+      <div class="step"><div class="num">6</div><div><h3>Locate where they spend their time</h3><p>Which platforms, groups, podcasts, and people do they trust? Facebook groups, TikTok, Instagram, church, local business networks, their accountant-less friends. Show up where they already are.</p></div></div>
+      <div class="step"><div class="num">7</div><div><h3>Match your services and write the message</h3><p>Connect each pain to one of your services. Then finish one sentence: "I help [avatar] who [problem] get [result] so they can [bigger life outcome]."</p></div></div>
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 3</span></div>
+</section>
+
+<!-- 4 RESEARCH -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Guide</div></div>
+  <div class="body">
+    <h2>Where the <em>answers</em> live</h2>
+    <p class="lede">You don't need a focus group. You need to pay attention to what you already have.</p>
+
+    <div class="two">
+      <div class="card">
+        <h3>Your own records</h3>
+        <ul>
+          <li>Intake forms and organizers: what they ask about most</li>
+          <li>Common return types in your best-client list</li>
+          <li>Questions that hit your inbox and DMs in February</li>
+          <li>Reasons clients left (yes, look at those too)</li>
+          <li>Which referrals turned into paying clients</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Listen online</h3>
+        <ul>
+          <li>Comments and questions in tax and small-business Facebook groups</li>
+          <li>Reddit threads on side hustles and self-employment</li>
+          <li>Replies to your own posts and polls</li>
+          <li>Search suggestions: what people type into Google</li>
+          <li>Competitors' comment sections (what are people confused about?)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top:0.2in">Ask them directly: 10 questions</h3>
+    <div class="hooks">
+      <div class="hook"><span>What made you start looking for help with your taxes or books?</span></div>
+      <div class="hook"><span>What was the most stressful part of last tax season?</span></div>
+      <div class="hook"><span>What did you try before reaching out to a professional?</span></div>
+      <div class="hook"><span>What almost stopped you from hiring someone?</span></div>
+      <div class="hook"><span>How do you feel about your money and records right now?</span></div>
+      <div class="hook"><span>What would "taxes handled" look like for you, in your words?</span></div>
+      <div class="hook"><span>Who do you ask for money advice, and who do you trust?</span></div>
+      <div class="hook"><span>Where do you hang out online and in real life?</span></div>
+      <div class="hook"><span>How did you find me, and what made you pick me?</span></div>
+      <div class="hook"><span>What would you tell a friend in your shoes?</span></div>
+    </div>
+
+    <div class="callout">
+      <b class="t">Rule you cannot skip</b>
+      Your avatar is a <b>composite</b>. Never post or share a real client's name, photo, situation, or return details. Client tax information is protected, and publishing it without the right written consent is a big problem under IRC §7216 and your own professional obligations. Blend traits from several people so nobody can be identified.
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 4</span></div>
+</section>
+
+<!-- 5 EXAMPLE -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Guide</div></div>
+  <div class="body">
+    <h2>Example: <em>Side-Hustle Sheila</em></h2>
+    <p class="lede">A sample composite avatar for a virtual tax and bookkeeping practice. Not a real person. Use it as a model, then build your own.</p>
+
+    <div class="avatar">
+      <div class="top">
+        <div class="pic">S</div>
+        <div><h3>Side-Hustle Sheila</h3><small>Age 28 to 40 · Works a W-2 job and runs a side hustle (delivery, reselling, braiding, content, cleaning) · Rents or owns a starter home · Online most of the day</small></div>
+      </div>
+      <div class="grid">
+        <div class="cell"><h4>Pain points</h4><ul><li>Got hit with an unexpected balance due</li><li>Doesn't know what she can write off</li><li>Mixes personal and business money</li><li>Doesn't know estimated taxes exist</li></ul></div>
+        <div class="cell"><h4>Fears</h4><ul><li>"Am I doing something illegal?"</li><li>Getting an IRS notice</li><li>Paying a pro and still owing</li><li>Looking clueless in front of a professional</li></ul></div>
+        <div class="cell"><h4>Goals</h4><ul><li>Keep more of what she earns</li><li>Feel legit and organized</li><li>Qualify for a mortgage or car loan</li><li>Grow the hustle into a real business</li></ul></div>
+        <div class="cell"><h4>Objections</h4><ul><li>"TurboTax is $100 cheaper."</li><li>"I barely make anything."</li><li>"I'll get to it in April."</li><li>"A bookkeeper is for big businesses."</li></ul></div>
+        <div class="cell"><h4>Where she is</h4><ul><li>TikTok and Instagram Reels</li><li>Facebook hustle and small-business groups</li><li>Group chats with friends and coworkers</li></ul></div>
+        <div class="cell"><h4>Buying triggers</h4><ul><li>A payment-app or 1099 form shows up</li><li>Tax season panic</li><li>Needs proof of income for a loan</li><li>Friend gets a bigger refund</li></ul></div>
+        <div class="cell wide"><h4>Her words</h4><span class="quote">"I just need someone to tell me what I'm supposed to be doing so I don't mess it up."</span></div>
+        <div class="cell wide"><h4>Services that fit</h4>Self-employed tax prep · Monthly bookkeeping · Quarterly estimate planning · Business setup and entity guidance · Tax-ready organizer</div>
+        <div class="cell wide"><h4>Message statement</h4><b>"I help side-hustlers who are scared of tax season get organized and stop overpaying, so they can grow their hustle into a real business."</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 5</span></div>
+</section>
+
+<!-- 6 WORKSHEET -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Worksheet</div></div>
+  <div class="body" style="padding-top:0.3in">
+    <h2 style="font-size:20pt">Build <em>your</em> avatar</h2>
+    <div class="ws" style="margin-top:0.12in">
+      <div class="field short"><label>Avatar name</label><small>Alliterative names stick</small></div>
+      <div class="field short"><label>Age · location · household</label></div>
+      <div class="field short"><label>Occupation and income type</label><small>W-2, 1099, owner, mixed</small></div>
+      <div class="field short"><label>Filing complexity</label><small>Schedule C, rentals, crypto, multi-state...</small></div>
+      <div class="field"><label>Top 3 pain points</label></div>
+      <div class="field"><label>Top 3 fears</label></div>
+      <div class="field"><label>Goals and dreams</label><small>Tax and life</small></div>
+      <div class="field"><label>Objections</label><small>Why they say "not yet"</small></div>
+      <div class="field"><label>Where they spend time</label><small>Platforms, groups, people</small></div>
+      <div class="field"><label>Buying triggers</label><small>What makes them act now</small></div>
+      <div class="field"><label>Their exact words</label><small>Phrases you've heard from real people</small></div>
+      <div class="field"><label>Services that solve their problems</label></div>
+      <div class="field full"><label>My message statement</label><small>"I help [avatar] who [problem] get [result] so they can [bigger outcome]."</small></div>
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 6</span></div>
+</section>
+
+<!-- 7 SOCIAL -->
+<section class="page">
+  <div class="hdr"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tag">Client Avatar Guide</div></div>
+  <div class="body">
+    <h2>Turn your avatar into <em>content</em></h2>
+    <p class="lede">An avatar you never use is a hobby. Here is how to put it to work this week.</p>
+
+    <h3>6 hook formulas</h3>
+    <div class="hooks">
+      <div class="hook"><span><b>Call them out:</b> "If you drive for DoorDash and file your own taxes, read this."</span></div>
+      <div class="hook"><span><b>Name the fear:</b> "Scared of an IRS letter? Here's what the first one usually means."</span></div>
+      <div class="hook"><span><b>Bust the myth:</b> "'I don't make enough to file.' Let's talk."</span></div>
+      <div class="hook"><span><b>Answer the objection:</b> "Why the cheapest preparer can cost you more."</span></div>
+      <div class="hook"><span><b>Use their words:</b> Turn a real client question (anonymized) into a post.</span></div>
+      <div class="hook"><span><b>Show the shift:</b> "Before I got organized / after" stories as composites.</span></div>
+    </div>
+
+    <h3 style="margin-top:0.18in">A simple weekly rhythm</h3>
+    <div class="two">
+      <div class="card"><h3>Mon to Wed</h3><ul><li>1 educational post or Reel</li><li>1 myth-buster</li><li>Reply to every comment</li></ul></div>
+      <div class="card"><h3>Thu to Sun</h3><ul><li>1 story or behind-the-scenes</li><li>1 clear call to action (book, DM, join list)</li><li>1 engagement question</li></ul></div>
+    </div>
+
+    <div class="callout blue">
+      <b class="t">Mentor note: stay compliant</b>
+      <ul style="margin:4px 0 0">
+        <li>No guarantees of refund size, audit outcomes, or "maximum refund." You don't control those.</li>
+        <li>Describe your credential accurately. If you are an Annual Filing Season Program participant, say exactly that. Do not say "certified," "licensed," or imply you are an EA, CPA, or attorney.</li>
+        <li>Educational content is general information, not individual tax advice. Add a short disclaimer to long-form posts.</li>
+        <li>Follow IRS Circular 230 rules on advertising and fees if they apply to you, and your state's preparer rules.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="ftr"><span>Created by The LTD Group for TAXiOS · October 2026</span><span>© 2026 All rights reserved · Page 7</span></div>
+</section>
+
+<!-- 8 BACK -->
+<section class="page back">
+  <div>
+    <div class="wordmark" style="font-size:28pt">TAX<span class="i">i</span><span class="os">OS</span></div>
+    <h2 style="margin-top:0.8in">Your avatar <em>checklist</em></h2>
+    <ul class="check" style="font-size:12pt;color:#e6e9ff;margin-top:0.2in">
+      <li>Listed my 5 best clients and their common traits</li>
+      <li>Named my avatar and picked a face</li>
+      <li>Wrote their pain, fear, goal, and objection list in their own words</li>
+      <li>Found the 2 to 3 places they spend time</li>
+      <li>Matched my services to their problems</li>
+      <li>Finished my message statement</li>
+      <li>Scheduled this week's posts</li>
+      <li>Confirmed my avatar is a composite and my posts are compliant</li>
+    </ul>
+    <p style="margin-top:0.4in">Review your avatar every tax season. People change, platforms change, and your best clients will tell you what you missed.</p>
+  </div>
+  <div class="legal">
+    <b style="color:#fff">Created by The LTD Group for TAXiOS</b> · October 2026<br>
+    © 2026 The LTD Group LLC and TAXiOS. All rights reserved. No part of this guide may be reproduced, distributed, or shared without written permission, except for personal use by TAXiOS mentees. This guide is educational and is not tax, legal, or compliance advice.
+  </div>
+</section>
+
+</body>
+</html>
