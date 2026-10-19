@@ -5,16 +5,18 @@
 <title>TAXiOS Client Avatar Guide</title>
 <style>
   /* Brand tokens. Swap these if the official TAXiOS palette differs. */
+  /* TAXiOS brand tokens, sampled from the official TAXiOS flyer */
   :root {
-    --black: #07070d;
-    --ink: #14142b;
-    --blue: #2f6bff;
-    --violet: #5b2bd6;
-    --green: #2bd62b;
-    --green-deep: #138a2a;
-    --mist: #eef0fb;
-    --line: #d6d9ee;
-    --body: #262640;
+    --black: #0d0610;
+    --ink: #1b0a2e;
+    --blue: #7a3cf0;      /* TAXiOS violet (primary accent) */
+    --violet: #3a1ca8;    /* deep indigo */
+    --green: #f54a04;     /* TAXiOS orange (secondary accent) */
+    --green-deep: #c23a00;
+    --maroon: #8b1a1a;
+    --mist: #f5f0fb;
+    --line: #e2d8f0;
+    --body: #2a2038;
   }
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
@@ -24,29 +26,28 @@
   .page { width: 8.5in; height: 11in; position: relative; overflow: hidden; page-break-after: always; background: #fff; }
   .page:last-child { page-break-after: auto; }
 
-  /* wordmark (provisional) */
-  .wordmark { font-weight: 900; letter-spacing: 1px; font-size: 22pt; color: #fff; line-height: 1; }
-  .wordmark .i { color: var(--green); }
-  .wordmark .os { color: #6f95ff; }
-  .wordmark.dark { color: var(--ink); }
-  .wordmark.dark .os { color: var(--blue); }
-  .wordmark.dark .i { color: var(--green-deep); }
+  /* wordmark: silver italic TAX + violet iOS, as on the TAXiOS badge */
+  .wordmark { font-weight: 900; font-style: italic; letter-spacing: 0; font-size: 22pt; line-height: 1; display: inline-block; padding-right: 3px; color: #d9d9e2; text-shadow: 0 1px 0 #6b6b7c; }
+  .wordmark .i, .wordmark .os { color: #8f3cf5; text-shadow: 0 0 8px rgba(143,60,245,.55); }
+  .badge { width: 1.9in; height: 1.9in; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #241228, #0d0610 70%); border: 4px solid #ff7a1a; box-shadow: 0 0 22px rgba(245,74,4,.55), inset 0 0 18px rgba(245,74,4,.25); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  .badge .wordmark { font-size: 27pt; }
+  .badge .tl { font-size: 5.6pt; color: #e8e2f0; margin-top: 7px; letter-spacing: .3px; font-weight: 600; }
 
   /* cover */
-  .cover { background: radial-gradient(circle at 80% 15%, #1d2bb8 0%, rgba(29,43,184,0) 45%), radial-gradient(circle at 10% 95%, #4a1fb5 0%, rgba(74,31,181,0) 50%), var(--black); color: #fff; padding: 0.8in; }
-  .cover .ring { position: absolute; right: -2.9in; top: 5.6in; width: 6in; height: 6in; border-radius: 50%; border: 14px solid transparent; background: linear-gradient(var(--black), var(--black)) padding-box, linear-gradient(160deg, var(--blue), var(--violet)) border-box; opacity: .9; }
-  .cover .wordmark { font-size: 34pt; }
-  .cover .kicker { margin-top: 2.1in; color: var(--green); font-weight: 800; letter-spacing: 4px; font-size: 11pt; text-transform: uppercase; }
+  .cover { background: radial-gradient(circle at 85% 12%, #4b1fa8 0%, rgba(75,31,168,0) 48%), radial-gradient(circle at 8% 98%, #a8340a 0%, rgba(168,52,10,0) 42%), var(--black); color: #fff; padding: 0.8in; }
+  .cover .ring { position: absolute; right: -2.9in; top: 5.6in; width: 6in; height: 6in; border-radius: 50%; border: 14px solid transparent; background: linear-gradient(var(--black), var(--black)) padding-box, linear-gradient(160deg, var(--green), var(--blue)) border-box; opacity: .95; }
+  
+  .cover .kicker { margin-top: 1.3in; color: var(--green); font-weight: 800; letter-spacing: 4px; font-size: 11pt; text-transform: uppercase; }
   .cover h1 { font-size: 54pt; line-height: 1.0; margin: 0.15in 0 0.2in; font-weight: 900; max-width: 6in; position: relative; }
   .cover h1 span { color: var(--green); }
-  .cover .sub { font-size: 14pt; max-width: 4.3in; color: #cfd6ff; position: relative; }
-  .cover .byline { position: absolute; left: 0.8in; bottom: 0.7in; right: 0.8in; font-size: 9pt; color: #aeb6e8; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
+  .cover .sub { font-size: 14pt; max-width: 4.3in; color: #e4dcf5; position: relative; }
+  .cover .byline { position: absolute; left: 0.8in; bottom: 0.7in; right: 0.8in; font-size: 9pt; color: #c9bfe0; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
   .cover .byline b { color: #fff; }
 
   /* interior */
   .hdr { background: var(--black); color: #fff; height: 0.7in; padding: 0 0.7in; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--blue), var(--violet), var(--green)) 1; }
   .hdr .wordmark { font-size: 15pt; }
-  .hdr .tag { font-size: 8.5pt; color: #b8c0f0; letter-spacing: 2px; text-transform: uppercase; }
+  .hdr .tag { font-size: 8.5pt; color: #d6c9f0; letter-spacing: 2px; text-transform: uppercase; }
   .body { padding: 0.45in 0.7in 0.9in; }
   .ftr { position: absolute; left: 0.7in; right: 0.7in; bottom: 0.32in; font-size: 7.5pt; color: #6b6f95; border-top: 1px solid var(--line); padding-top: 0.08in; display: flex; justify-content: space-between; }
 
@@ -76,10 +77,10 @@
 
   /* avatar profile card */
   .avatar { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
-  .avatar .top { background: linear-gradient(135deg, var(--black), #1b1f8a 60%, var(--violet)); color: #fff; padding: 0.2in 0.25in; display: flex; gap: 0.2in; align-items: center; }
+  .avatar .top { background: linear-gradient(135deg, var(--black), #3a1ca8 60%, #7a3cf0); color: #fff; padding: 0.2in 0.25in; display: flex; gap: 0.2in; align-items: center; }
   .avatar .pic { width: 0.95in; height: 0.95in; border-radius: 50%; border: 3px solid var(--green); display: flex; align-items: center; justify-content: center; font-size: 30pt; font-weight: 900; color: var(--green); background: rgba(255,255,255,.06); flex: none; }
   .avatar .top h3 { color: #fff; font-size: 20pt; margin: 0; }
-  .avatar .top small { color: #c5ccff; font-size: 10pt; }
+  .avatar .top small { color: #e0d4f7; font-size: 10pt; }
   .avatar .grid { display: grid; grid-template-columns: 1fr 1fr; }
   .avatar .cell { padding: 0.12in 0.2in; border-top: 1px solid var(--line); font-size: 9.5pt; }
   .avatar .cell:nth-child(odd) { border-right: 1px solid var(--line); }
@@ -103,11 +104,11 @@
   .check li { list-style: none; position: relative; padding-left: 0.28in; }
   .check li::before { content: ""; position: absolute; left: 0; top: 2px; width: 0.16in; height: 0.16in; border: 2px solid var(--blue); border-radius: 4px; }
 
-  .back { background: radial-gradient(circle at 20% 10%, #1d2bb8 0%, rgba(29,43,184,0) 45%), var(--black); color: #fff; padding: 0.8in; display: flex; flex-direction: column; justify-content: space-between; }
+  .back { background: radial-gradient(circle at 20% 10%, #4b1fa8 0%, rgba(75,31,168,0) 45%), radial-gradient(circle at 90% 100%, #a8340a 0%, rgba(168,52,10,0) 40%), var(--black); color: #fff; padding: 0.8in; display: flex; flex-direction: column; justify-content: space-between; }
   .back h2 { color: #fff; font-size: 30pt; }
   .back h2 em { color: var(--green); }
-  .back p { color: #cfd6ff; max-width: 5.6in; font-size: 12pt; }
-  .back .legal { font-size: 8.5pt; color: #aeb6e8; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
+  .back p { color: #e4dcf5; max-width: 5.6in; font-size: 12pt; }
+  .back .legal { font-size: 8.5pt; color: #c9bfe0; border-top: 1px solid rgba(255,255,255,.25); padding-top: 0.15in; }
 </style>
 </head>
 <body>
@@ -115,7 +116,7 @@
 <!-- 1 COVER -->
 <section class="page cover">
   <div class="ring"></div>
-  <div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div>
+  <div class="badge"><div class="wordmark">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tl">Powered by Pros. Built for EROs.</div></div>
   <div class="kicker">Mentee Playbook · Social Media Edition</div>
   <h1>The Client<br><span>Avatar</span><br>Guide</h1>
   <div class="sub">Stop marketing to "everybody who files taxes." Build the one person your business is actually built for, then talk directly to them.</div>
@@ -333,7 +334,7 @@
 <!-- 8 BACK -->
 <section class="page back">
   <div>
-    <div class="wordmark" style="font-size:28pt">TAX<span class="i">i</span><span class="os">OS</span></div>
+    <div class="badge" style="width:1.6in;height:1.6in"><div class="wordmark" style="font-size:22pt">TAX<span class="i">i</span><span class="os">OS</span></div><div class="tl">Powered by Pros. Built for EROs.</div></div>
     <h2 style="margin-top:0.8in">Your avatar <em>checklist</em></h2>
     <ul class="check" style="font-size:12pt;color:#e6e9ff;margin-top:0.2in">
       <li>Listed my 5 best clients and their common traits</li>
